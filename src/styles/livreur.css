@@ -1,0 +1,511 @@
+/* =========================================================================
+   Éléments propres à l'application livreur, partagés par plusieurs écrans :
+   logo, statut, lecteur de QR code, étapes, lignes de colis.
+   Mêmes variables que la charte client (styles/theme.css).
+   ========================================================================= */
+
+/* ------------------------------------------------------------------------
+   Logo « Tôligo. Livreur »
+   ------------------------------------------------------------------------ */
+.logo {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--police-titre);
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  color: var(--encre);
+}
+
+.logo__point {
+  color: var(--accent);
+}
+
+.logo__badge {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  margin-left: 8px;
+  padding: 0 10px;
+  border-radius: var(--rayon-pilule);
+  background: var(--encre);
+  color: var(--blanc);
+  font-family: var(--police-corps);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+/* ------------------------------------------------------------------------
+   Statut du livreur : point coloré + libellé
+   ------------------------------------------------------------------------ */
+.statut-ligne {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--texte-secondaire);
+}
+
+.point-statut {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+/* ------------------------------------------------------------------------
+   Lecteur de QR code (commun/Scanner.jsx)
+   ------------------------------------------------------------------------ */
+.scanner__cadre {
+  position: relative;
+  margin-top: 14px;
+  aspect-ratio: 4 / 3;
+  max-height: 46dvh;
+  width: 100%;
+  border-radius: var(--rayon-carte);
+  background: var(--encre);
+  overflow: hidden;
+  outline: none;
+}
+
+.scanner__video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Carré de visée, avec une ligne orange qui balaie. */
+.scanner__viseur {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(62%, 240px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 22px;
+  box-shadow: 0 0 0 999px rgba(18, 18, 18, 0.35);
+  border: 3px solid var(--blanc);
+  overflow: hidden;
+}
+
+.scanner__viseur span {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent-vif);
+  box-shadow: 0 0 12px var(--accent-vif);
+  animation: balayer 2s ease-in-out infinite alternate;
+}
+
+@keyframes balayer {
+  from {
+    top: 10%;
+  }
+  to {
+    top: 88%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scanner__viseur span {
+    animation: none;
+    top: 50%;
+  }
+}
+
+.scanner__etat {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  color: var(--gris-sur-noir);
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.scanner__envoi {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 14px;
+  transform: translateX(-50%);
+  border-radius: var(--rayon-pilule);
+  background: var(--blanc);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* Saisie à la main, sous la caméra. */
+.scanner__saisie {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 56px;
+  margin-top: 12px;
+  padding: 0 6px 0 16px;
+  border-radius: 22px;
+  background: var(--surface);
+  color: var(--texte-secondaire);
+}
+
+.scanner__saisie:focus-within {
+  background: var(--blanc);
+  box-shadow: inset 0 0 0 2px var(--encre);
+}
+
+.scanner__saisie input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--encre);
+  outline: none;
+}
+
+.scanner__saisie input::placeholder {
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.scanner__saisie button {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--encre);
+  color: var(--blanc);
+}
+
+.scanner__saisie button:disabled {
+  background: var(--separateur);
+  cursor: not-allowed;
+}
+
+.scanner__resultats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.scanner__resultat {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--rayon-champ);
+  background: var(--succes-clair);
+  color: var(--succes-fonce);
+  font-size: 14px;
+}
+
+.scanner__resultat svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+.scanner__resultat--echec {
+  background: var(--erreur-clair);
+  color: var(--erreur);
+}
+
+.scanner__message {
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--info);
+}
+
+/* ------------------------------------------------------------------------
+   Étapes d'une livraison (liste verticale avec ronds reliés)
+   ------------------------------------------------------------------------ */
+.parcours {
+  display: flex;
+  flex-direction: column;
+}
+
+.parcours__etape {
+  position: relative;
+  display: flex;
+  gap: 14px;
+  padding-bottom: 18px;
+}
+
+.parcours__etape:last-child {
+  padding-bottom: 0;
+}
+
+/* Trait qui relie un rond au suivant. */
+.parcours__etape:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 13px;
+  top: 30px;
+  bottom: 2px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--bordure);
+}
+
+.parcours__etape--faite:not(:last-child)::before {
+  background: var(--encre);
+}
+
+.parcours__rond {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--gris-rond);
+  background: var(--blanc);
+  color: var(--blanc);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.parcours__etape--faite .parcours__rond {
+  border-color: var(--encre);
+  background: var(--encre);
+}
+
+.parcours__etape--courante .parcours__rond {
+  border: 7px solid var(--accent);
+}
+
+.parcours__titre {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 28px;
+}
+
+.parcours__etape--a-venir .parcours__titre {
+  color: var(--texte-discret);
+  font-weight: 600;
+}
+
+.parcours__detail {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--texte-secondaire);
+}
+
+/* ------------------------------------------------------------------------
+   Lignes de colis (code de suivi, format, fragile)
+   ------------------------------------------------------------------------ */
+.ligne-colis {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+}
+
+.ligne-colis + .ligne-colis {
+  border-top: 1px solid var(--surface-alt);
+}
+
+.ligne-colis__code {
+  font-size: 14.5px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.ligne-colis__format {
+  font-size: 12.5px;
+  color: var(--texte-secondaire);
+}
+
+/* ------------------------------------------------------------------------
+   Petits éléments communs aux écrans de travail
+   ------------------------------------------------------------------------ */
+
+/* Carte noire « À faire maintenant » (accueil, tournée en cours). */
+.carte-sombre {
+  display: block;
+  width: 100%;
+  padding: 18px;
+  border: 0;
+  border-radius: var(--rayon-carte);
+  background: var(--encre);
+  color: var(--blanc);
+  text-align: left;
+  text-decoration: none;
+}
+
+.carte-sombre[role='button'] {
+  cursor: pointer;
+}
+
+.carte-sombre .texte-secondaire {
+  color: var(--gris-sur-noir);
+}
+
+.carte-sombre__icone {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  background: var(--nuit-carte);
+  border: 1px solid var(--nuit-bordure);
+  color: var(--accent-vif);
+}
+
+.carte-sombre .progression {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.carte-sombre .progression__barre {
+  background: var(--accent-vif);
+}
+
+/* Boutons d'action en rangée (Appeler · SMS · Itinéraire). */
+.actions-rapides {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 8px;
+}
+
+.action-rapide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 72px;
+  border: 0;
+  border-radius: var(--rayon-champ);
+  background: var(--surface);
+  color: var(--encre);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.action-rapide:hover {
+  background: #ebebed;
+}
+
+.action-rapide--noire {
+  background: var(--encre);
+  color: var(--blanc);
+}
+
+.action-rapide--noire:hover {
+  background: #2b2b2e;
+}
+
+/* Lien qui ressemble à un bouton (appel téléphonique dans le pied). */
+a.bouton {
+  text-decoration: none;
+}
+
+/* Carte de la page : coins arrondis, hauteur fixe. */
+.cadre-carte {
+  height: 210px;
+  border-radius: var(--rayon-carte);
+  overflow: hidden;
+  background: var(--fond-carte);
+}
+
+@media (min-width: 960px) {
+  .cadre-carte {
+    height: 280px;
+  }
+}
+
+/* Bilan d'une livraison ou d'une tournée close. */
+.bilan {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--rayon-carte);
+}
+
+.bilan--succes {
+  background: var(--succes-clair);
+  color: var(--succes-fonce);
+}
+
+.bilan--echec {
+  background: var(--accent-clair);
+  color: var(--accent-fonce);
+}
+
+.bilan svg {
+  flex: none;
+}
+
+.bilan__titre {
+  font-family: var(--police-titre);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.bilan__texte {
+  margin-top: 2px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--info);
+}
+
+/* Montant à encaisser, bien visible. */
+.montant {
+  font-family: var(--police-titre);
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+
+/* Deux colonnes sur ordinateur (contenu + colonne de droite). */
+.colonnes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 22px;
+}
+
+@media (min-width: 960px) {
+  .colonnes {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 32px;
+  }
+
+  .colonnes__droite {
+    position: sticky;
+    top: 24px;
+  }
+}
+
+.titre-section {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.titre-section h2 {
+  flex: 1;
+  font-size: 16px;
+}

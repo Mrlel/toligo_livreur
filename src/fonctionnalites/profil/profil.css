@@ -1,0 +1,17 @@
+/* =========================================================================
+   Profil du livreur.
+   ========================================================================= */
+.profil__identite {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 22px;
+  padding: 18px;
+  border-radius: var(--rayon-carte);
+  background: var(--surface);
+}
+
+.profil__nom {
+  font-size: 20px;
+  letter-spacing: -0.3px;
+}

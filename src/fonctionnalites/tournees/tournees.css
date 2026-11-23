@@ -1,0 +1,197 @@
+/* =========================================================================
+   Tournées de ramassage : liste et détail.
+   ========================================================================= */
+
+/* ------------------------------------------------------------------------
+   Carte d'une tournée (liste et accueil)
+   ------------------------------------------------------------------------ */
+.carte-tournee__haut {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.carte-tournee__icone {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  background: var(--surface-alt);
+}
+
+.carte-tournee__icone--active {
+  background: var(--accent-clair);
+  color: var(--accent);
+}
+
+.carte-tournee__titre {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.carte-tournee__detail {
+  font-size: 13px;
+  color: var(--texte-secondaire);
+}
+
+.carte-tournee__bas {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--surface-alt);
+}
+
+.carte-tournee__info {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--info);
+}
+
+.carte-tournee__info svg {
+  flex: none;
+  color: var(--texte-secondaire);
+}
+
+/* ------------------------------------------------------------------------
+   Détail : arrêts et box
+   ------------------------------------------------------------------------ */
+.arret {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.arret__entete {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.arret__numero {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--encre);
+  color: var(--blanc);
+  font-family: var(--police-titre);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.arret--fini .arret__numero {
+  background: var(--succes-clair);
+  color: var(--succes);
+}
+
+/* Les box d'un arrêt sont décalés sous le numéro. */
+.arret > .pile {
+  padding-left: 44px;
+}
+
+@media (max-width: 420px) {
+  .arret > .pile {
+    padding-left: 0;
+  }
+}
+
+.passage--visite,
+.passage--anomalie {
+  background: var(--surface-selection);
+}
+
+.passage__commentaire {
+  margin-top: 10px;
+  font-size: 13px;
+  font-style: italic;
+  color: var(--erreur);
+}
+
+.passage__colis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.passage__code {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 30px;
+  letter-spacing: 0.2px;
+}
+
+.passage__code small {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--texte-secondaire);
+  letter-spacing: 0;
+}
+
+.passage__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.passage__actions .bouton {
+  flex: 1;
+}
+
+.passage__anomalie {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  color: var(--erreur);
+}
+
+/* Dépôt à la station : bloc gris avec la liste des colis à bord. */
+.depot-station {
+  padding: 16px;
+  border-radius: var(--rayon-carte);
+  background: var(--surface);
+}
+
+.depot-station .ligne-colis + .ligne-colis {
+  border-top-color: var(--bordure);
+}
+
+/* Repère numéroté d'un arrêt sur la carte. */
+.repere-arret {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 3px solid var(--blanc);
+  background: var(--encre);
+  color: var(--blanc);
+  font-family: var(--police-titre);
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(18, 18, 18, 0.25);
+}
+
+.repere-arret--fini {
+  background: var(--texte-discret);
+}

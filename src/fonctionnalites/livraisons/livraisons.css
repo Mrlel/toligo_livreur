@@ -1,0 +1,214 @@
+/* =========================================================================
+   Livraisons à domicile : liste, détail, remise.
+   ========================================================================= */
+
+/* ------------------------------------------------------------------------
+   Carte d'une livraison (liste et accueil)
+   ------------------------------------------------------------------------ */
+.carte-mission__haut {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.carte-mission__nom {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.carte-mission__adresse {
+  font-size: 13px;
+  color: var(--texte-secondaire);
+}
+
+.carte-mission__bas {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--surface-alt);
+}
+
+.carte-mission__info {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--info);
+}
+
+.carte-mission__info svg {
+  flex: none;
+  color: var(--texte-secondaire);
+}
+
+.carte-mission__montant {
+  margin-left: auto;
+}
+
+/* ------------------------------------------------------------------------
+   Espèces à reverser
+   ------------------------------------------------------------------------ */
+.carte-especes {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 16px;
+  border-radius: var(--rayon-carte);
+  background: var(--accent-clair);
+  color: var(--accent-fonce);
+}
+
+.carte-especes__icone {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  background: var(--blanc);
+  color: var(--accent);
+}
+
+.carte-especes__libelle {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.carte-especes__montant {
+  font-family: var(--police-titre);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.4px;
+  color: var(--encre);
+}
+
+.carte-especes__note {
+  margin-top: 2px;
+  font-size: 13px;
+}
+
+/* ------------------------------------------------------------------------
+   Détail d'une livraison
+   ------------------------------------------------------------------------ */
+.adresse-livraison {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: var(--rayon-champ);
+  background: var(--surface);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.adresse-livraison__instructions {
+  margin-top: 4px;
+  font-style: italic;
+  color: var(--info);
+}
+
+/* Paiement à la livraison. */
+.carte-paiement {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1.5px solid var(--accent-clair);
+  border-radius: var(--rayon-carte);
+  background: var(--accent-pale);
+}
+
+.carte-paiement__icone {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  background: var(--accent-clair);
+  color: var(--accent);
+}
+
+.carte-paiement__texte {
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--info);
+}
+
+.carte-paiement .bouton {
+  align-self: flex-start;
+  width: auto;
+}
+
+.encadre-probleme {
+  margin-top: 14px;
+}
+
+/* ------------------------------------------------------------------------
+   Remise : code de retrait et photo
+   ------------------------------------------------------------------------ */
+.saisie-code {
+  height: 64px;
+  font-family: var(--police-titre);
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: 10px;
+  text-align: center;
+}
+
+.saisie-code::placeholder {
+  letter-spacing: 10px;
+  color: var(--gris-rond);
+}
+
+.prise-photo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 28px 20px;
+  border: 1.5px dashed var(--pointilles);
+  border-radius: var(--rayon-carte);
+  background: var(--surface-selection);
+  text-align: center;
+}
+
+.prise-photo:hover {
+  border-color: var(--texte-discret);
+}
+
+.prise-photo--erreur {
+  border-color: var(--erreur);
+}
+
+.apercu-photo {
+  position: relative;
+  border-radius: var(--rayon-carte);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.apercu-photo img {
+  display: block;
+  width: 100%;
+  max-height: 360px;
+  object-fit: cover;
+}
+
+.apercu-photo__reprendre {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--blanc);
+  box-shadow: var(--ombre-flottante);
+}
