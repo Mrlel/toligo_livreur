@@ -1,17 +1,26 @@
 import { api } from '../../api/client';
-import { lireDate, lireEntier, lireListe, lireNombre, lireObjet } from '../../utils/lecture';
+import { lireBooleen, lireDate, lireEntier, lireListe, lireNombre, lireObjet } from '../../utils/lecture';
 
 /**
- * Tournées de ramassage, côté chauffeur (routes /livreur/tournees).
+ * Tournées de ramassage (routes /livreur/tournees).
  *
- * L'administration crée la tournée (station A, chauffeur, camion, date). Le
- * chauffeur :
- * 1. la démarre : le système y ajoute les box qui contiennent un colis ;
- * 2. à chaque box : l'ouvre à distance, scanne chaque colis qu'il prend
- *    (ramassages), ou signale une anomalie ;
- * 3. à la station A : scanne chaque colis qu'il dépose (depots) ;
- * 4. termine la tournée.
+ * Le gestionnaire de la station planifie la tournée : station A, chauffeur,
+ * aides, véhicule de la station, début et fin prévus. Seul le chauffeur la
+ * pilote ; ses aides la voient (`monRole` = 'aide') sans boutons d'action.
+ * Le chauffeur ne scanne pas les colis :
+ * 1. il la démarre : le système y ajoute les box qui contiennent un colis ;
+ * 2. à chaque site : il prend les colis dans les box (ouverts depuis
+ *    l'application TTLock de l'entrepôt, pas depuis cette application), ou
+ *    signale une anomalie sur un box, puis appuie sur « Fin du passage » :
+ *    tous les colis des box du site passent dans le camion (fin-de-passage) ;
+ * 3. à la station A : « Terminer la tournée » y dépose tous les colis du
+ *    camion et clôt la tournée (terminer).
  */
+
+/** Membre de l'équipe : chauffeur ou aide. */
+function versMembre(json) {
+  return { id: json.id ?? '', nomComplet: json.nom_complet ?? '', telephone: json.telephone ?? '' };
+}
 
 function versStation(json) {
   if (!json) return null;
@@ -56,6 +65,7 @@ function versTournee(json) {
     id: json.id ?? '',
     statut: json.statut ?? 'planifiee',
     planifieeLe: lireDate(json.planifiee_le),
+    finPrevueLe: lireDate(json.fin_prevue_le),
     demarreeLe: lireDate(json.demarree_le),
     termineeLe: lireDate(json.terminee_le),
     station: versStation(json.station),
@@ -64,9 +74,14 @@ function versTournee(json) {
     entrepots: Array.isArray(json.entrepots)
       ? lireListe(json.entrepots).map((site) => ({ id: site.id ?? '', nom: site.nom ?? '', adresse: site.adresse ?? '' }))
       : null,
-    vehicule: vehicule && { type: vehicule.type ?? 'autre', immatriculation: vehicule.immatriculation ?? '' },
+    vehicule: vehicule && { type: vehicule.type ?? 'autre', immatriculation: vehicule.immatriculation ?? '', capaciteKg: lireNombre(vehicule.capacite_kg) },
+    // 'chauffeur' : il pilote la tournée ; 'aide' : il la suit sans agir.
+    monRole: json.mon_role === 'aide' ? 'aide' : 'chauffeur',
+    chauffeur: json.chauffeur ? versMembre(lireObjet(json.chauffeur)) : null,
+    aides: lireListe(json.aides).map(versMembre),
     nbBox: lireEntier(json.nb_box),
     // Arrêts : les box regroupés par site, dans l'ordre de passage.
+    // `passageTermine` : plus aucun box du site à visiter.
     arrets: lireListe(json.arrets).map((arret) => {
       const site = arret.entrepot ? lireObjet(arret.entrepot) : null;
       return {
@@ -77,6 +92,7 @@ function versTournee(json) {
           latitude: lireNombre(site.latitude),
           longitude: lireNombre(site.longitude),
         },
+        passageTermine: lireBooleen(arret.passage_termine),
         passages: lireListe(arret.passages).map(versPassage),
       };
     }),
@@ -105,25 +121,19 @@ export async function demarrerTournee(id) {
   return versDetail(lireObjet(await api.post(`/livreur/tournees/${id}/demarrer`)));
 }
 
-/** Ouvre le box à distance (passerelle TTLock). Le serveur répond 502 si le box ne répond pas. */
-export function ouvrirBox(id, passageId) {
-  return api.post(`/livreur/tournees/${id}/passages/${passageId}/ouvrir`);
-}
-
 export function signalerAnomalie(id, passageId, commentaire) {
   return api.post(`/livreur/tournees/${id}/passages/${passageId}/anomalie`, { commentaire });
 }
 
-/** Colis pris dans un box. */
-export function scannerRamassage(id, codeSuivi) {
-  return api.post(`/livreur/tournees/${id}/ramassages`, { code_suivi: codeSuivi });
+/**
+ * « Fin du passage » à un site : tous les colis de ses box passent dans le
+ * camion, sauf ceux des box signalés en anomalie.
+ */
+export async function terminerPassage(id, entrepotId) {
+  return versDetail(lireObjet(await api.post(`/livreur/tournees/${id}/entrepots/${entrepotId}/fin-de-passage`)));
 }
 
-/** Colis déposé à la station A. */
-export function scannerDepot(id, codeSuivi) {
-  return api.post(`/livreur/tournees/${id}/depots`, { code_suivi: codeSuivi });
-}
-
+/** À la station A : dépose tous les colis du camion et clôt la tournée. */
 export async function terminerTournee(id) {
   return versDetail(lireObjet(await api.post(`/livreur/tournees/${id}/terminer`)));
 }

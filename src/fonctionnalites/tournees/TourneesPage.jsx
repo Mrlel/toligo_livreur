@@ -56,9 +56,16 @@ export function CarteTournee({ tournee }) {
           </p>
           <p className="carte-tournee__detail une-ligne">Arrivée : {tournee.station?.nom ?? 'station'}</p>
         </div>
-        <Pastille ton={statut.ton} petite>
-          {statut.libelle}
-        </Pastille>
+        <div className="pile" style={{ gap: 4, alignItems: 'flex-end' }}>
+          <Pastille ton={statut.ton} petite>
+            {statut.libelle}
+          </Pastille>
+          {tournee.monRole === 'aide' && (
+            <Pastille ton="neutre" petite>
+              Aide
+            </Pastille>
+          )}
+        </div>
       </div>
 
       <div className="carte-tournee__bas">

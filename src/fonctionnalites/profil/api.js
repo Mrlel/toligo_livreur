@@ -8,7 +8,7 @@ import { lireBooleen, lireNombre, lireObjet } from '../../utils/lecture';
 
 /** Profil renvoyé par l'API (LivreurResource), en noms JavaScript. */
 export function versProfil(json) {
-  const vehicule = json.vehicule ? lireObjet(json.vehicule) : null;
+  const station = json.station ? lireObjet(json.station) : null;
   return {
     id: json.id ?? '',
     nomComplet: json.nom_complet ?? '',
@@ -18,11 +18,8 @@ export function versProfil(json) {
     // Un livreur peut avoir les deux rôles : les onglets suivent ces deux valeurs.
     estChauffeur: lireBooleen(json.est_chauffeur_ramassage),
     estLivreurDomicile: lireBooleen(json.est_livreur_domicile),
-    vehicule: vehicule && {
-      type: vehicule.type ?? 'autre',
-      immatriculation: vehicule.immatriculation ?? '',
-      capaciteKg: lireNombre(vehicule.capacite_kg),
-    },
+    // Station actuelle ; le véhicule est choisi pour chaque tournée ou livraison.
+    station: station && { id: station.id ?? '', code: station.code ?? '', nom: station.nom ?? '' },
     noteMoyenne: lireNombre(json.note_moyenne),
   };
 }

@@ -152,16 +152,7 @@
   margin-top: 14px;
 }
 
-.passage__actions .bouton {
-  flex: 1;
-}
-
 .passage__anomalie {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
   color: var(--erreur);
 }
 

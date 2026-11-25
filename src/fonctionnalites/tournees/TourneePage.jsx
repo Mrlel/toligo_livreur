@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import L from 'leaflet';
 import { Marker } from 'react-leaflet';
-import { CircleCheck, Flag, LockOpen, Navigation, Package, PackageCheck, Play, ScanLine, TriangleAlert, Truck, Warehouse } from 'lucide-react';
+import { CircleCheck, Flag, Navigation, Package, PackageCheck, Play, TriangleAlert, Truck, Users, Warehouse } from 'lucide-react';
 
 import {
   BarreProgression,
@@ -18,7 +18,6 @@ import {
   Modale,
   Page,
   Pastille,
-  PetitBouton,
   PiedDAction,
   Puce,
   VueDonnees,
@@ -28,33 +27,27 @@ import {
 import { Cadrage, CarteOsm, coordonnees, iconeClient, iconeStation, lienItineraire } from '../../commun/carte';
 import { usePosition } from '../../commun/Position';
 import { Routes } from '../../commun/routes';
-import { Scanner } from '../../commun/Scanner';
 import { useSession } from '../../session/Session';
 import { heure, majuscule, moment } from '../../utils/formatage';
 import { useActualisation, useDonnees } from '../../utils/useDonnees';
 import { libelleVehicule } from '../profil/api';
-import {
-  demarrerTournee,
-  detailTournee,
-  infosEtatPassage,
-  ouvrirBox,
-  scannerDepot,
-  scannerRamassage,
-  signalerAnomalie,
-  terminerTournee,
-} from './api';
+import { demarrerTournee, detailTournee, infosEtatPassage, signalerAnomalie, terminerPassage, terminerTournee } from './api';
 import './tournees.css';
 
 /**
- * Tournée de ramassage, côté chauffeur (CDC V3.3 §13.3).
+ * Tournée de ramassage, côté chauffeur (CDC V3.3 §13.3). Pas de scan des
+ * colis.
  *
  * - Prévue : résumé et bouton « Démarrer ».
- * - En cours : les arrêts (sites) et leurs box ; à chaque box, « Ouvrir »,
- *   « Scanner » les colis pris, ou « Anomalie ». Puis le dépôt à la station :
- *   scanner chaque colis déposé, et terminer.
+ * - En cours : les arrêts (sites) et leurs box. Le chauffeur ouvre les box
+ *   depuis l'application TTLock de l'entrepôt ; il peut signaler un problème
+ *   sur un box. Une fois les colis pris, « Fin du passage » pour le site :
+ *   tous les colis de ses box passent dans le camion.
+ * - À la station A : « Terminer la tournée » y dépose tous les colis du
+ *   camion et clôt la tournée.
  *
- * Le bouton du bas propose toujours l'étape suivante : scanner les colis
- * tant qu'il reste des box à vider, puis scanner les dépôts, puis terminer.
+ * Le bouton du bas propose toujours l'étape suivante : la fin du passage au
+ * prochain site, puis la fin de la tournée.
  */
 export default function TourneePage() {
   const { id } = useParams();
@@ -66,8 +59,7 @@ export default function TourneePage() {
   const detail = useDonnees(() => detailTournee(id), [id]);
   useActualisation(detail.recharger, 0);
 
-  const [enCours, setEnCours] = useState(null); // 'demarrer' | 'terminer' | 'ouvrir-<passage>'
-  const [scan, setScan] = useState(null); // 'ramassage' | 'depot'
+  const [enCours, setEnCours] = useState(null); // 'demarrer' | 'terminer' | 'site-<entrepot>'
   const [passageAnomalie, setPassageAnomalie] = useState(null);
 
   async function demarrer() {
@@ -90,11 +82,24 @@ export default function TourneePage() {
     }
   }
 
-  async function ouvrir(passage) {
-    setEnCours(`ouvrir-${passage.id}`);
+  /** Le chauffeur a pris les colis du site : ils passent dans le camion. */
+  async function finirPassage(arret) {
+    const site = arret.entrepot;
+    const aPrendre = arret.passages.filter((p) => p.etat === 'a_visiter').reduce((total, p) => total + p.colisAPrendre.length, 0);
+    const enAnomalie = arret.passages.some((p) => p.etat === 'anomalie');
+    const ok = await confirmer({
+      titre: `Fin du passage à ${site?.nom ?? 'ce site'} ?`,
+      texte:
+        `Confirmez que vous avez pris les colis des box${aPrendre > 0 ? ` (${aPrendre} colis)` : ''} : ils passent dans le camion.` +
+        (enAnomalie ? ' Les box signalés en anomalie gardent leurs colis.' : ''),
+      accepter: 'Colis récupérés',
+    });
+    if (!ok) return;
+    setEnCours(`site-${site.id}`);
     try {
-      await ouvrirBox(id, passage.id);
-      afficherMessage(`Box ${passage.box?.numero ?? ''} ouvert.`);
+      const { aBord } = await terminerPassage(id, site.id);
+      afficherMessage(`Passage terminé : ${aBord.length} colis à bord.`);
+      detail.recharger();
     } catch (erreur) {
       afficherErreur(erreur);
     } finally {
@@ -102,26 +107,24 @@ export default function TourneePage() {
     }
   }
 
+  /** À la station A : dépose les colis du camion et clôt la tournée. */
   async function terminer(tournee, aBord) {
-    const restants = tournee.passages.filter((p) => p.etat === 'a_visiter').length;
-    if (aBord.length > 0) {
-      afficherMessage(`Déposez d'abord les ${aBord.length} colis encore à bord : scannez-les à la station.`);
-      return;
-    }
+    const station = tournee.station?.nom ?? 'la station';
+    const sitesRestants = tournee.arrets.filter((a) => !a.passageTermine).length;
     const ok = await confirmer({
       titre: 'Terminer la tournée ?',
       texte:
-        restants > 0
-          ? `${restants} box n'${restants > 1 ? 'ont' : 'a'} pas été vidé${restants > 1 ? 's' : ''} : ${restants > 1 ? 'ils seront signalés' : 'il sera signalé'} et les colis attendront la prochaine tournée.`
-          : 'Tous les colis ramassés sont déposés à la station.',
-      accepter: 'Terminer',
-      danger: restants > 0,
+        (aBord.length > 0 ? `Vous êtes à ${station} : les ${aBord.length} colis du camion y sont déposés.` : 'Aucun colis dans le camion.') +
+        (sitesRestants === 1 ? " 1 site n'a pas été visité : ses colis attendront la prochaine tournée." : '') +
+        (sitesRestants > 1 ? ` ${sitesRestants} sites n'ont pas été visités : leurs colis attendront la prochaine tournée.` : ''),
+      accepter: aBord.length > 0 ? 'Colis déposés, terminer' : 'Terminer',
+      danger: sitesRestants > 0,
     });
     if (!ok) return;
     setEnCours('terminer');
     try {
       await terminerTournee(id);
-      afficherMessage('Tournée terminée. Merci !');
+      afficherMessage(aBord.length > 0 ? `Tournée terminée : ${aBord.length} colis déposés à ${station}. Merci !` : 'Tournée terminée. Merci !');
       detail.recharger();
       rechargerProfil();
     } catch (erreur) {
@@ -146,7 +149,7 @@ export default function TourneePage() {
             aBord={donnees.aBord}
             enCours={enCours}
             onDemarrer={demarrer}
-            onScanner={setScan}
+            onFinirPassage={finirPassage}
             onTerminer={() => terminer(tournee, donnees.aBord)}
             onRetour={() => naviguer(Routes.tournees)}
           />
@@ -162,30 +165,12 @@ export default function TourneePage() {
               tournee={t}
               aBord={aBord}
               enCours={enCours}
-              onOuvrir={ouvrir}
-              onScanner={setScan}
+              onFinirPassage={finirPassage}
               onAnomalie={setPassageAnomalie}
             />
           )
         }
       </VueDonnees>
-
-      <Scanner
-        ouverte={scan !== null}
-        onFermer={() => setScan(null)}
-        titre={scan === 'depot' ? 'Dépôt à la station' : 'Ramassage'}
-        aide={
-          scan === 'depot'
-            ? `Scannez chaque colis que vous déposez à ${tournee?.station?.nom ?? 'la station'}.`
-            : 'Scannez chaque colis que vous prenez dans le box.'
-        }
-        traiter={async (code) => {
-          if (scan === 'depot') await scannerDepot(id, code);
-          else await scannerRamassage(id, code);
-          detail.recharger();
-          return scan === 'depot' ? 'Déposé à la station.' : 'Pris en charge : il est à bord.';
-        }}
-      />
 
       <FenetreAnomalie
         passage={passageAnomalie}
@@ -211,11 +196,14 @@ function TourneePrevue({ tournee }) {
     <div className="pile" style={{ gap: 14 }}>
       <BlocGris style={{ padding: 4 }}>
         <LigneInfo libelle="Prévue" valeur={tournee.planifieeLe ? majuscule(moment(tournee.planifieeLe)) : 'À préciser'} />
+        {tournee.finPrevueLe && <LigneInfo libelle="Fin prévue" valeur={majuscule(moment(tournee.finPrevueLe))} />}
         <LigneInfo libelle="Arrivée" valeur={tournee.station?.nom ?? '—'} />
         {tournee.vehicule && (
-          <LigneInfo libelle={libelleVehicule(tournee.vehicule.type)} valeur={tournee.vehicule.immatriculation} />
+          <LigneInfo libelle={libelleVehicule(tournee.vehicule.type)} valeur={tournee.vehicule.immatriculation || '—'} />
         )}
       </BlocGris>
+
+      <EquipeTournee tournee={tournee} />
 
       <section>
         <div className="titre-section">
@@ -255,10 +243,12 @@ function TourneePrevue({ tournee }) {
 }
 
 /** Tournée démarrée (ou close) : progression, arrêts et box, dépôt à la station. */
-function TourneeEnCours({ tournee, aBord, enCours, onOuvrir, onScanner, onAnomalie }) {
-  const total = tournee.passages.length;
-  const traites = tournee.passages.filter((p) => p.etat !== 'a_visiter').length;
+function TourneeEnCours({ tournee, aBord, enCours, onFinirPassage, onAnomalie }) {
+  const total = tournee.arrets.length;
+  const traites = tournee.arrets.filter((a) => a.passageTermine).length;
   const active = tournee.statut === 'en_cours';
+  // Un aide suit la tournée sans « Fin du passage » ni signalement.
+  const pilote = active && tournee.monRole !== 'aide';
 
   return (
     <div className="colonnes">
@@ -283,7 +273,7 @@ function TourneeEnCours({ tournee, aBord, enCours, onOuvrir, onScanner, onAnomal
               </span>
               <div className="extensible">
                 <p className="titre" style={{ fontSize: 17 }}>
-                  {traites} box sur {total} traité{traites > 1 ? 's' : ''}
+                  {traites} site{traites > 1 ? 's' : ''} sur {total} visité{traites > 1 ? 's' : ''}
                 </p>
                 <p className="texte-secondaire" style={{ fontSize: 13 }}>
                   {tournee.demarreeLe ? `Démarrée à ${heure(tournee.demarreeLe)}` : 'En cours'} · {aBord.length} colis à bord
@@ -309,10 +299,9 @@ function TourneeEnCours({ tournee, aBord, enCours, onOuvrir, onScanner, onAnomal
                 key={arret.entrepot?.id ?? rang}
                 arret={arret}
                 rang={rang}
-                active={active}
+                active={pilote}
                 enCours={enCours}
-                onOuvrir={onOuvrir}
-                onScanner={() => onScanner('ramassage')}
+                onFinirPassage={() => onFinirPassage(arret)}
                 onAnomalie={onAnomalie}
               />
             ))}
@@ -322,6 +311,8 @@ function TourneeEnCours({ tournee, aBord, enCours, onOuvrir, onScanner, onAnomal
 
       <div className="colonnes__droite pile" style={{ gap: 14 }}>
         <CarteTournee tournee={tournee} />
+
+        <EquipeTournee tournee={tournee} />
 
         <section className="depot-station">
           <div className="rangee" style={{ gap: 12 }}>
@@ -366,10 +357,10 @@ function TourneeEnCours({ tournee, aBord, enCours, onOuvrir, onScanner, onAnomal
             ))
           )}
 
-          {active && aBord.length > 0 && (
-            <Bouton variante="contour" compact icone={PackageCheck} onClick={() => onScanner('depot')} style={{ marginTop: 12 }}>
-              Scanner les dépôts
-            </Bouton>
+          {pilote && aBord.length > 0 && (
+            <p className="texte-secondaire" style={{ fontSize: 13, marginTop: 10 }}>
+              « Terminer la tournée », à la station, y dépose ces colis.
+            </p>
           )}
         </section>
       </div>
@@ -377,10 +368,30 @@ function TourneeEnCours({ tournee, aBord, enCours, onOuvrir, onScanner, onAnomal
   );
 }
 
-/** Un arrêt : le site, son adresse, et ses box à vider. */
-function ArretTournee({ arret, rang, active, enCours, onOuvrir, onScanner, onAnomalie }) {
+/** Équipe de la tournée : le chauffeur (il la pilote) et ses aides. */
+function EquipeTournee({ tournee }) {
+  if (!tournee.chauffeur && tournee.aides.length === 0) return null;
+
+  return (
+    <section>
+      <div className="titre-section">
+        <h2>Équipe</h2>
+        <Users size={18} aria-hidden="true" className="texte-secondaire" />
+      </div>
+      <BlocGris style={{ padding: 4 }}>
+        {tournee.chauffeur && <LigneInfo libelle="Chauffeur" valeur={tournee.chauffeur.nomComplet} />}
+        {tournee.aides.map((aide) => (
+          <LigneInfo key={aide.id} libelle="Aide" valeur={aide.nomComplet} />
+        ))}
+      </BlocGris>
+    </section>
+  );
+}
+
+/** Un arrêt : le site, son adresse, ses box à vider, et « Fin du passage ». */
+function ArretTournee({ arret, rang, active, enCours, onFinirPassage, onAnomalie }) {
   const site = arret.entrepot;
-  const fini = arret.passages.every((p) => p.etat !== 'a_visiter');
+  const fini = arret.passageTermine;
 
   return (
     <div className={`arret${fini ? ' arret--fini' : ''}`}>
@@ -407,19 +418,22 @@ function ArretTournee({ arret, rang, active, enCours, onOuvrir, onScanner, onAno
             key={passage.id}
             passage={passage}
             active={active}
-            ouvertureEnCours={enCours === `ouvrir-${passage.id}`}
-            onOuvrir={() => onOuvrir(passage)}
-            onScanner={onScanner}
             onAnomalie={() => onAnomalie(passage)}
           />
         ))}
       </div>
+
+      {active && !fini && site?.id && (
+        <Bouton variante="contour" icone={PackageCheck} enCours={enCours === `site-${site.id}`} onClick={onFinirPassage} style={{ marginTop: 10 }}>
+          Fin du passage
+        </Bouton>
+      )}
     </div>
   );
 }
 
 /** Un box de la tournée : son état, ses colis, et les actions possibles. */
-function CartePassage({ passage, active, ouvertureEnCours, onOuvrir, onScanner, onAnomalie }) {
+function CartePassage({ passage, active, onAnomalie }) {
   const etat = infosEtatPassage(passage.etat);
   const aVider = passage.etat === 'a_visiter';
 
@@ -459,15 +473,9 @@ function CartePassage({ passage, active, ouvertureEnCours, onOuvrir, onScanner, 
 
       {aVider && active && (
         <div className="passage__actions">
-          <Bouton compact icone={LockOpen} enCours={ouvertureEnCours} onClick={onOuvrir}>
-            Ouvrir
+          <Bouton variante="texte" compact icone={TriangleAlert} onClick={onAnomalie} className="passage__anomalie">
+            Signaler un problème
           </Bouton>
-          <Bouton compact variante="contour" icone={ScanLine} onClick={onScanner}>
-            Scanner
-          </Bouton>
-          <PetitBouton onClick={onAnomalie} aria-label="Signaler une anomalie" title="Signaler une anomalie" className="passage__anomalie">
-            <TriangleAlert size={17} aria-hidden="true" />
-          </PetitBouton>
         </div>
       )}
     </Carte>
@@ -502,7 +510,7 @@ function CarteTournee({ tournee }) {
           <Marker
             key={arret.entrepot.id || rang}
             position={point}
-            icon={iconeArret(rang + 1, arret.passages.every((p) => p.etat !== 'a_visiter'))}
+            icon={iconeArret(rang + 1, arret.passageTermine)}
           />
         ))}
         {station && <Marker position={station} icon={iconeStation(true)} />}
@@ -514,7 +522,17 @@ function CarteTournee({ tournee }) {
 }
 
 /** Pied : l'étape suivante de la tournée. */
-function PiedTournee({ tournee, aBord, enCours, onDemarrer, onScanner, onTerminer, onRetour }) {
+function PiedTournee({ tournee, aBord, enCours, onDemarrer, onFinirPassage, onTerminer, onRetour }) {
+  if (tournee.monRole === 'aide') {
+    return (
+      <PiedDAction entete={<p className="pied__note extensible">Vous êtes aide : {tournee.chauffeur?.nomComplet ?? 'le chauffeur'} pilote la tournée.</p>}>
+        <Bouton variante="secondaire" onClick={onRetour}>
+          Retour aux tournées
+        </Bouton>
+      </PiedDAction>
+    );
+  }
+
   if (tournee.statut === 'planifiee') {
     return (
       <PiedDAction arrondi>
@@ -535,13 +553,14 @@ function PiedTournee({ tournee, aBord, enCours, onDemarrer, onScanner, onTermine
     );
   }
 
-  const resteDesBox = tournee.passages.some((p) => p.etat === 'a_visiter');
+  // Prochain site à visiter, dans l'ordre de passage.
+  const prochain = tournee.arrets.find((a) => !a.passageTermine && a.entrepot?.id);
 
-  if (resteDesBox) {
+  if (prochain) {
     return (
-      <PiedDAction arrondi>
-        <Bouton icone={ScanLine} onClick={() => onScanner('ramassage')}>
-          Scanner un colis
+      <PiedDAction arrondi entete={<p className="pied__note extensible">Prochain arrêt : {prochain.entrepot.nom}</p>}>
+        <Bouton icone={PackageCheck} enCours={enCours === `site-${prochain.entrepot.id}`} onClick={() => onFinirPassage(prochain)}>
+          Fin du passage
         </Bouton>
         <Bouton variante="texte" icone={Flag} enCours={enCours === 'terminer'} onClick={onTerminer}>
           Terminer la tournée
@@ -550,18 +569,17 @@ function PiedTournee({ tournee, aBord, enCours, onDemarrer, onScanner, onTermine
     );
   }
 
-  if (aBord.length > 0) {
-    return (
-      <PiedDAction arrondi entete={<p className="pied__note extensible">Box vidés : déposez les {aBord.length} colis à la station.</p>}>
-        <Bouton icone={PackageCheck} onClick={() => onScanner('depot')}>
-          Scanner les dépôts
-        </Bouton>
-      </PiedDAction>
-    );
-  }
-
   return (
-    <PiedDAction arrondi>
+    <PiedDAction
+      arrondi
+      entete={
+        aBord.length > 0 && (
+          <p className="pied__note extensible">
+            Sites visités : à {tournee.station?.nom ?? 'la station'}, terminez la tournée pour y déposer les {aBord.length} colis.
+          </p>
+        )
+      }
+    >
       <Bouton variante="accent" icone={Flag} enCours={enCours === 'terminer'} onClick={onTerminer}>
         Terminer la tournée
       </Bouton>

@@ -5,7 +5,7 @@ import { AvatarInitiales, BlocGris, Bouton, EncadreInfo, LigneInfo, Page, Pastil
 import { texteEtatPosition, usePosition } from '../../commun/Position';
 import { useSession } from '../../session/Session';
 import { afficher as afficherTelephone } from '../../utils/telephone';
-import { infosStatut, libelleVehicule, seDeconnecter } from './api';
+import { infosStatut, seDeconnecter } from './api';
 import './profil.css';
 
 /**
@@ -83,18 +83,14 @@ export default function ProfilPage() {
 
         <section>
           <p className="etiquette-section" style={{ marginBottom: 8 }}>
-            Véhicule
+            Station
           </p>
           <BlocGris style={{ padding: 4 }}>
-            {profil?.vehicule ? (
-              <>
-                <LigneInfo libelle={libelleVehicule(profil.vehicule.type)} valeur={profil.vehicule.immatriculation || '—'} />
-                {profil.vehicule.capaciteKg > 0 && <LigneInfo libelle="Capacité" valeur={`${profil.vehicule.capaciteKg} kg`} />}
-              </>
-            ) : (
-              <LigneInfo libelle="Véhicule" valeur="Aucun attribué" />
-            )}
+            <LigneInfo libelle="Station" valeur={profil?.station?.nom ?? 'Aucune'} />
           </BlocGris>
+          <p className="texte-secondaire" style={{ fontSize: 13, marginTop: 6 }}>
+            Le véhicule vous est confié pour chaque tournée ou livraison par le gestionnaire de la station.
+          </p>
         </section>
 
         <EncadreInfo icone={LocateFixed}>
