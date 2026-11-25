@@ -18,34 +18,94 @@
   max-width: 480px;
   min-height: 100dvh;
   margin: 0 auto;
-  padding: 22px 24px 0;
+  padding: 12px 12px 0;
+}
+
+/* Bandeau gris du téléphone : « Tôligo », « ESPACE LIVREUR », le camion. */
+.connexion__bandeau {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 272px;
+  padding-top: 42px;
+  overflow: hidden;
+  border-radius: 36px;
+  background: var(--surface);
+  isolation: isolate;
+}
+
+.connexion__marque {
+  font-family: var(--police-titre);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+}
+
+.connexion__espace {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  margin-top: 6px;
+  padding: 0 14px;
+  border-radius: var(--rayon-pilule);
+  background: var(--encre);
+  color: var(--blanc);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.connexion__halo {
+  position: absolute;
+  top: 74px;
+  left: 50%;
+  z-index: -1;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: var(--blanc);
+  transform: translateX(-50%);
+}
+
+.connexion__camion {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  width: 210px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.connexion__sol {
+  position: absolute;
+  bottom: 26px;
+  left: 50%;
+  z-index: -1;
+  width: 300px;
+  height: 18px;
+  border-radius: 50%;
+  background: #eaeaec;
+  transform: translateX(-50%);
 }
 
 .connexion__logo {
-  font-size: 22px;
-}
-
-/* Camion en haut à droite sur téléphone (le parachute de la connexion client). */
-.connexion__camion {
-  position: absolute;
-  top: 58px;
-  right: -8px;
-  width: 150px;
-  pointer-events: none;
+  display: none;
 }
 
 .connexion__corps {
   flex: 1;
-  padding-top: 120px;
+  padding: 24px 12px 0;
 }
 
 .connexion__titre {
-  font-size: 28px;
+  font-size: 26px;
   letter-spacing: -0.5px;
 }
 
 .connexion__texte {
-  margin-top: 8px;
+  margin-top: 6px;
   font-size: 15px;
   line-height: 1.5;
   color: var(--texte-secondaire);
@@ -55,13 +115,13 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  margin-top: 26px;
+  margin-top: 22px;
 }
 
 .connexion__pied {
   position: sticky;
   bottom: 0;
-  padding: 12px 0 calc(24px + env(safe-area-inset-bottom));
+  padding: 12px 12px calc(24px + env(safe-area-inset-bottom));
   background: var(--fond);
 }
 
@@ -101,8 +161,13 @@
     margin: 0;
   }
 
-  .connexion__camion {
+  .connexion__bandeau {
     display: none;
+  }
+
+  .connexion__logo {
+    display: inline-flex;
+    font-size: 22px;
   }
 
   .connexion__corps {

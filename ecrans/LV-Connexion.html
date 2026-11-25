@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tôligo Livreur — Connexion</title>
+<!-- Maquette Tôligo : LV01 · Connexion -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&amp;family=DM+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#121212}a:hover{color:#000000}
+button{font:inherit;cursor:pointer}
+input,textarea{font:inherit}
+input::placeholder,textarea::placeholder{color:#76767C}
+</style>
+<style>
+body{margin:0;min-height:100vh;background:#E9E9EC;display:flex;justify-content:center;align-items:flex-start;padding:32px 16px;box-sizing:border-box}
+.ecran{border-radius:44px;overflow:hidden;box-shadow:0 24px 60px rgba(18,18,18,0.18);flex-shrink:0}
+</style>
+</head>
+<body>
+<div class="ecran">
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #FFFFFF; font-family: 'DM Sans', sans-serif; color: #121212; box-sizing: border-box">
+  <div style="margin: 12px 12px 0; height: 272px; border-radius: 36px; background: #F5F5F6; position: relative; overflow: hidden">
+    <svg width="366" height="272" viewBox="0 0 366 272" aria-hidden="true" style="position: absolute; inset: 0; display: block">
+      <circle cx="183" cy="160" r="100" fill="#FFFFFF"></circle>
+      <ellipse cx="183" cy="238" rx="150" ry="13" fill="#EAEAEC"></ellipse>
+    </svg>
+    <div style="position: absolute; top: 40px; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; gap: 10px">
+      <span style="font-family: 'Sora', sans-serif; font-weight: 700; font-size: 26px; letter-spacing: -0.4px">Tôligo</span>
+      <span style="height: 28px; padding: 0 14px; border-radius: 999px; background: #121212; color: #FFFFFF; font-size: 12px; font-weight: 700; letter-spacing: 1px; display: inline-flex; align-items: center">ESPACE LIVREUR</span>
+    </div>
+    <img src="../img/camion.png" alt="Camion Tôligo" style="position: absolute; left: 50%; bottom: 26px; width: 236px; height: auto; margin-left: -118px; display: block">
+  </div>
+
+  <div style="padding: 22px 24px 0; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <h1 style="margin: 0; font-family: 'Sora', sans-serif; font-weight: 600; font-size: 25px; letter-spacing: -0.4px">Connexion</h1>
+      <p style="margin: 0; font-size: 14.5px; color: #616168">Chauffeurs de ramassage et livreurs à domicile.</p>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <label for="tel" style="font-size: 13.5px; font-weight: 600">Numéro de téléphone</label>
+      <div style="display: flex; gap: 8px">
+        <span style="height: 54px; padding: 0 14px; border-radius: 18px; background: #F5F5F6; display: inline-flex; align-items: center; font-size: 16px; font-weight: 600">+225</span>
+        <input id="tel" type="tel" value="07 45 18 22 90" style="flex-grow: 1; min-width: 0; height: 54px; border-radius: 18px; border: 0; background: #F5F5F6; padding: 0 18px; font-size: 16px; color: #121212; box-sizing: border-box; outline: none">
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <label for="mdp" style="font-size: 13.5px; font-weight: 600">Mot de passe</label>
+      <div style="height: 54px; border-radius: 18px; border: 2px solid #121212; display: flex; align-items: center; padding: 0 4px 0 18px; box-sizing: border-box">
+        <input id="mdp" type="password" value="toligo2026" style="flex-grow: 1; min-width: 0; border: 0; background: transparent; font-size: 16px; color: #121212; outline: none; letter-spacing: 2px">
+        <button type="button" aria-label="Afficher le mot de passe" style="width: 44px; height: 44px; border-radius: 50%; border: 0; background: transparent; color: #616168; display: flex; align-items: center; justify-content: center; padding: 0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+      </div>
+    </div>
+    <div style="display: flex; gap: 10px; padding: 12px 14px; border-radius: 18px; background: #F5F5F6">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#121212" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0; margin-top: 1px"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+      <span style="font-size: 13px; line-height: 1.45; color: #3F3F45">Votre compte est créé par l’administrateur Tôligo. Mot de passe oublié : contactez votre gestionnaire de station.</span>
+    </div>
+  </div>
+
+  <div style="position: absolute; left: 24px; right: 24px; bottom: 34px">
+    <a href="LV-Accueil.html" style="height: 56px; border-radius: 999px; background: #121212; color: #FFFFFF; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; font-weight: 600; font-size: 16px">Se connecter</a>
+  </div>
+</div>
+</div>
+</body>
+</html>

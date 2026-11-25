@@ -8,11 +8,16 @@ import { FournisseurConfirmation, FournisseurMessages } from './composants';
 import { FournisseurSession, useSession } from './session/Session';
 
 import AccueilPage from './fonctionnalites/accueil/AccueilPage';
+import ActivitePage from './fonctionnalites/activite/ActivitePage';
 import ConnexionPage from './fonctionnalites/authentification/ConnexionPage';
+import EchecPage from './fonctionnalites/livraisons/EchecPage';
+import FinLivraisonPage from './fonctionnalites/livraisons/FinLivraisonPage';
 import LivraisonPage from './fonctionnalites/livraisons/LivraisonPage';
 import LivraisonsPage from './fonctionnalites/livraisons/LivraisonsPage';
+import PrisePage from './fonctionnalites/livraisons/PrisePage';
 import RemisePage from './fonctionnalites/livraisons/RemisePage';
 import ProfilPage from './fonctionnalites/profil/ProfilPage';
+import AnomaliePage from './fonctionnalites/tournees/AnomaliePage';
 import TourneePage from './fonctionnalites/tournees/TourneePage';
 import TourneesPage from './fonctionnalites/tournees/TourneesPage';
 
@@ -63,14 +68,19 @@ export default function App() {
                     <Route path={Routes.accueil} element={<AccueilPage />} />
                     <Route path={Routes.livraisons} element={<LivraisonsPage />} />
                     <Route path={Routes.tournees} element={<TourneesPage />} />
+                    <Route path={Routes.activite} element={<ActivitePage />} />
                     <Route path={Routes.profil} element={<ProfilPage />} />
 
-                    {/* Livraison à domicile */}
+                    {/* Livraison à domicile : étapes 1 à 4, échec, fin */}
                     <Route path="/livraisons/:id" element={<LivraisonPage />} />
+                    <Route path="/livraisons/:id/prise" element={<PrisePage />} />
                     <Route path="/livraisons/:id/remise" element={<RemisePage />} />
+                    <Route path="/livraisons/:id/echec" element={<EchecPage />} />
+                    <Route path="/livraisons/:id/fin" element={<FinLivraisonPage />} />
 
                     {/* Tournée de ramassage */}
                     <Route path="/tournees/:id" element={<TourneePage />} />
+                    <Route path="/tournees/:id/anomalie" element={<AnomaliePage />} />
                   </Route>
                 </Route>
 

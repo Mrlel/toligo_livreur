@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { House, KeyRound, Truck } from 'lucide-react';
+import { House, Lock, Truck } from 'lucide-react';
 
 import { Bouton, ChampMotDePasse, ChampTelephone, EncadreInfo, useMessages } from '../../composants';
 import { Logo } from '../../commun/Coquille';
@@ -60,12 +60,19 @@ export default function ConnexionPage() {
       </aside>
 
       <form className="connexion__panneau" onSubmit={seConnecter} noValidate>
-        <img className="connexion__camion" src="/illustrations/camion.png" alt="" />
+        {/* Téléphone : bandeau gris avec le logo et le camion (maquette LV-Connexion). */}
+        <div className="connexion__bandeau" aria-hidden="true">
+          <span className="connexion__marque">Tôligo</span>
+          <span className="connexion__espace">Espace livreur</span>
+          <span className="connexion__halo" />
+          <img className="connexion__camion" src="/illustrations/camion.png" alt="" />
+          <span className="connexion__sol" />
+        </div>
         <Logo className="connexion__logo" />
 
         <div className="connexion__corps">
-          <h1 className="connexion__titre">Espace livreur</h1>
-          <p className="connexion__texte">Connectez-vous avec le numéro et le mot de passe que Tôligo vous a donnés.</p>
+          <h1 className="connexion__titre">Connexion</h1>
+          <p className="connexion__texte">Chauffeurs de ramassage et livreurs à domicile.</p>
 
           <div className="connexion__formulaire">
             <ChampTelephone
@@ -86,8 +93,8 @@ export default function ConnexionPage() {
               erreur={erreurs.motDePasse}
               autoComplete="current-password"
             />
-            <EncadreInfo icone={KeyRound}>
-              Mot de passe oublié ou compte bloqué ? Contactez le gestionnaire de votre station ou l'équipe Tôligo.
+            <EncadreInfo icone={Lock}>
+              Votre compte est créé par l'administrateur Tôligo. Mot de passe oublié : contactez votre gestionnaire de station.
             </EncadreInfo>
           </div>
         </div>

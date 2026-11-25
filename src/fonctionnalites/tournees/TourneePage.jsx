@@ -1,651 +1,549 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import L from 'leaflet';
-import { Marker } from 'react-leaflet';
-import { CircleCheck, Flag, Navigation, Package, PackageCheck, Play, TriangleAlert, Truck, Users, Warehouse } from 'lucide-react';
+import { Marker, Polyline } from 'react-leaflet';
+import { Check, House, Lock, Navigation, TriangleAlert, Truck, Warehouse } from 'lucide-react';
 
 import {
-  BarreProgression,
-  BlocGris,
+  AvatarInitiales,
   Bouton,
-  Carte,
   Cascade,
-  Champ,
   EncadreInfo,
   EnTete,
-  IconeBox,
-  LigneInfo,
-  Modale,
+  Illustration,
   Page,
   Pastille,
   PiedDAction,
-  Puce,
   VueDonnees,
   useConfirmation,
   useMessages,
 } from '../../composants';
-import { Cadrage, CarteOsm, coordonnees, iconeClient, iconeStation, lienItineraire } from '../../commun/carte';
-import { usePosition } from '../../commun/Position';
+import { Cadrage, CarteOsm, coordonnees, lienItineraire } from '../../commun/carte';
 import { Routes } from '../../commun/routes';
 import { useSession } from '../../session/Session';
-import { heure, majuscule, moment } from '../../utils/formatage';
+import { plage, prenom } from '../../utils/formatage';
 import { useActualisation, useDonnees } from '../../utils/useDonnees';
-import { libelleVehicule } from '../profil/api';
-import { demarrerTournee, detailTournee, infosEtatPassage, signalerAnomalie, terminerPassage, terminerTournee } from './api';
+import { illustrationColis, nomVehicule } from '../livraisons/api';
+import { LigneColis } from '../livraisons/LivraisonPage';
+import { demarrerTournee, detailTournee, infosStatutTournee, terminerPassage, terminerTournee } from './api';
 import './tournees.css';
 
 /**
- * Tournée de ramassage, côté chauffeur (CDC V3.3 §13.3). Pas de scan des
- * colis.
- *
- * - Prévue : résumé et bouton « Démarrer ».
- * - En cours : les arrêts (sites) et leurs box. Le chauffeur ouvre les box
- *   depuis l'application TTLock de l'entrepôt ; il peut signaler un problème
- *   sur un box. Une fois les colis pris, « Fin du passage » pour le site :
- *   tous les colis de ses box passent dans le camion.
- * - À la station A : « Terminer la tournée » y dépose tous les colis du
- *   camion et clôt la tournée.
- *
- * Le bouton du bas propose toujours l'étape suivante : la fin du passage au
- * prochain site, puis la fin de la tournée.
+ * Tournée de ramassage (CDC V3.3 §13.3), maquettes LV-Ram-* :
+ * - prévue : carte, véhicule, équipe, entrepôts à visiter, « Démarrer » ;
+ * - en cours (chauffeur) : un entrepôt à la fois, ses box, « Fin du passage »
+ *   (pas de scan : box ouverts avec l'application TTLock de l'entrepôt) ;
+ * - tous les entrepôts visités : « Arrivée en station », « Terminer » ;
+ * - en cours (aide) : avancement seulement, le chauffeur pilote.
  */
 export default function TourneePage() {
   const { id } = useParams();
+  const detail = useDonnees(() => detailTournee(id), [id]);
+  useActualisation(detail.recharger);
+
+  return (
+    <VueDonnees etat={detail} messageChargement="Chargement de la tournée…">
+      {(donnees) => <Tournee donnees={donnees} onMiseAJour={detail.recharger} />}
+    </VueDonnees>
+  );
+}
+
+function Tournee({ donnees, onMiseAJour }) {
   const naviguer = useNavigate();
   const confirmer = useConfirmation();
   const { afficherMessage, afficherErreur } = useMessages();
   const { rechargerProfil } = useSession();
+  const [enCours, setEnCours] = useState(false);
+  const { tournee, aBord } = donnees;
 
-  const detail = useDonnees(() => detailTournee(id), [id]);
-  useActualisation(detail.recharger, 0);
-
-  const [enCours, setEnCours] = useState(null); // 'demarrer' | 'terminer' | 'site-<entrepot>'
-  const [passageAnomalie, setPassageAnomalie] = useState(null);
-
-  async function demarrer() {
-    const ok = await confirmer({
-      titre: 'Démarrer la tournée ?',
-      texte: 'Tôligo ajoute à la tournée les box qui contiennent un colis. Votre statut passe à « En mission ».',
-      accepter: 'Démarrer',
-    });
-    if (!ok) return;
-    setEnCours('demarrer');
+  async function executer(appel, message) {
+    setEnCours(true);
     try {
-      await demarrerTournee(id);
-      afficherMessage('Tournée démarrée. Bonne route !');
-      detail.recharger();
+      await appel();
+      afficherMessage(message);
+      onMiseAJour();
       rechargerProfil();
     } catch (erreur) {
       afficherErreur(erreur);
     } finally {
-      setEnCours(null);
+      setEnCours(false);
     }
   }
 
-  /** Le chauffeur a pris les colis du site : ils passent dans le camion. */
-  async function finirPassage(arret) {
-    const site = arret.entrepot;
-    const aPrendre = arret.passages.filter((p) => p.etat === 'a_visiter').reduce((total, p) => total + p.colisAPrendre.length, 0);
-    const enAnomalie = arret.passages.some((p) => p.etat === 'anomalie');
+  async function finirPassage(arret, nbColis) {
     const ok = await confirmer({
-      titre: `Fin du passage à ${site?.nom ?? 'ce site'} ?`,
-      texte:
-        `Confirmez que vous avez pris les colis des box${aPrendre > 0 ? ` (${aPrendre} colis)` : ''} : ils passent dans le camion.` +
-        (enAnomalie ? ' Les box signalés en anomalie gardent leurs colis.' : ''),
-      accepter: 'Colis récupérés',
+      titre: `Fin du passage à ${arret.entrepot?.nom ?? 'cet entrepôt'} ?`,
+      texte: nbColis > 0 ? `Les ${nbColis} colis des box passent dans le camion.` : 'Aucun colis à prendre dans ces box.',
+      accepter: 'Fin du passage',
     });
     if (!ok) return;
-    setEnCours(`site-${site.id}`);
-    try {
-      const { aBord } = await terminerPassage(id, site.id);
-      afficherMessage(`Passage terminé : ${aBord.length} colis à bord.`);
-      detail.recharger();
-    } catch (erreur) {
-      afficherErreur(erreur);
-    } finally {
-      setEnCours(null);
-    }
+    executer(() => terminerPassage(tournee.id, arret.entrepot.id), `Passage à ${arret.entrepot.nom} terminé.`);
   }
 
-  /** À la station A : dépose les colis du camion et clôt la tournée. */
-  async function terminer(tournee, aBord) {
-    const station = tournee.station?.nom ?? 'la station';
-    const sitesRestants = tournee.arrets.filter((a) => !a.passageTermine).length;
+  async function terminer() {
     const ok = await confirmer({
       titre: 'Terminer la tournée ?',
-      texte:
-        (aBord.length > 0 ? `Vous êtes à ${station} : les ${aBord.length} colis du camion y sont déposés.` : 'Aucun colis dans le camion.') +
-        (sitesRestants === 1 ? " 1 site n'a pas été visité : ses colis attendront la prochaine tournée." : '') +
-        (sitesRestants > 1 ? ` ${sitesRestants} sites n'ont pas été visités : leurs colis attendront la prochaine tournée.` : ''),
-      accepter: aBord.length > 0 ? 'Colis déposés, terminer' : 'Terminer',
-      danger: sitesRestants > 0,
+      texte: aBord.length > 0 ? `Les ${aBord.length} colis du camion sont déposés à la ${tournee.station?.nom ?? 'station'}.` : 'Aucun colis à déposer.',
+      accepter: 'Terminer',
     });
     if (!ok) return;
-    setEnCours('terminer');
-    try {
-      await terminerTournee(id);
-      afficherMessage(aBord.length > 0 ? `Tournée terminée : ${aBord.length} colis déposés à ${station}. Merci !` : 'Tournée terminée. Merci !');
-      detail.recharger();
-      rechargerProfil();
-    } catch (erreur) {
-      afficherErreur(erreur);
-    } finally {
-      setEnCours(null);
-    }
+    executer(() => terminerTournee(tournee.id), 'Tournée terminée. Merci !');
   }
 
-  const donnees = detail.donnees;
-  const tournee = donnees?.tournee;
+  if (tournee.statut === 'planifiee') {
+    return <TourneePrevue tournee={tournee} enCours={enCours} onDemarrer={() => executer(() => demarrerTournee(tournee.id), 'Tournée démarrée. Bonne route !')} />;
+  }
+  if (tournee.statut === 'en_cours' && tournee.monRole === 'aide') {
+    return <VueAide tournee={tournee} aBord={aBord} />;
+  }
 
-  return (
-    <Page
-      titre="Tournée"
-      largeur="moyenne"
-      entete={<EnTete titre="Tournée de ramassage" sousTitre={tournee?.station ? `Arrivée : ${tournee.station.nom}` : undefined} repli={Routes.tournees} />}
-      pied={
-        donnees && (
-          <PiedTournee
-            tournee={tournee}
-            aBord={donnees.aBord}
-            enCours={enCours}
-            onDemarrer={demarrer}
-            onFinirPassage={finirPassage}
-            onTerminer={() => terminer(tournee, donnees.aBord)}
-            onRetour={() => naviguer(Routes.tournees)}
-          />
-        )
-      }
-    >
-      <VueDonnees etat={detail} messageChargement="Chargement de la tournée…">
-        {({ tournee: t, aBord }) =>
-          t.statut === 'planifiee' ? (
-            <TourneePrevue tournee={t} />
-          ) : (
-            <TourneeEnCours
-              tournee={t}
-              aBord={aBord}
-              enCours={enCours}
-              onFinirPassage={finirPassage}
-              onAnomalie={setPassageAnomalie}
-            />
-          )
-        }
-      </VueDonnees>
-
-      <FenetreAnomalie
-        passage={passageAnomalie}
-        onFermer={() => setPassageAnomalie(null)}
-        onEnregistrer={async (commentaire) => {
-          try {
-            await signalerAnomalie(id, passageAnomalie.id, commentaire);
-            afficherMessage("Anomalie signalée à l'équipe Tôligo.");
-            setPassageAnomalie(null);
-            detail.recharger();
-          } catch (erreur) {
-            afficherErreur(erreur);
-          }
-        }}
+  const prochain = tournee.statut === 'en_cours' ? tournee.arrets.find((arret) => !arret.passageTermine && arret.entrepot?.id) : null;
+  if (prochain) {
+    return (
+      <PassageEntrepot
+        tournee={tournee}
+        arret={prochain}
+        enCours={enCours}
+        onFinir={(nbColis) => finirPassage(prochain, nbColis)}
+        onProbleme={() => naviguer(`${Routes.anomalie(tournee.id)}?site=${prochain.entrepot.id}`)}
       />
-    </Page>
-  );
+    );
+  }
+  return <ArriveeStation tournee={tournee} aBord={aBord} enCours={enCours} onTerminer={terminer} />;
 }
 
-/** Tournée pas encore démarrée : quand, où, avec quel camion. */
-function TourneePrevue({ tournee }) {
-  return (
-    <div className="pile" style={{ gap: 14 }}>
-      <BlocGris style={{ padding: 4 }}>
-        <LigneInfo libelle="Prévue" valeur={tournee.planifieeLe ? majuscule(moment(tournee.planifieeLe)) : 'À préciser'} />
-        {tournee.finPrevueLe && <LigneInfo libelle="Fin prévue" valeur={majuscule(moment(tournee.finPrevueLe))} />}
-        <LigneInfo libelle="Arrivée" valeur={tournee.station?.nom ?? '—'} />
-        {tournee.vehicule && (
-          <LigneInfo libelle={libelleVehicule(tournee.vehicule.type)} valeur={tournee.vehicule.immatriculation || '—'} />
-        )}
-      </BlocGris>
-
-      <EquipeTournee tournee={tournee} />
-
-      <section>
-        <div className="titre-section">
-          <h2>Sites à visiter</h2>
-        </div>
-        {!tournee.entrepots || tournee.entrepots.length === 0 ? (
-          <BlocGris>
-            <p className="demi-gras">Tous les sites de la station</p>
-            <p className="texte-secondaire" style={{ fontSize: 13, marginTop: 2 }}>
-              Ceux desservis par {tournee.station?.nom ?? 'la station'}.
-            </p>
-          </BlocGris>
-        ) : (
-          <Cascade className="pile" style={{ gap: 8 }}>
-            {tournee.entrepots.map((site) => (
-              <Carte key={site.id} ombre={false}>
-                <div className="rangee" style={{ gap: 12 }}>
-                  <span className="vignette">
-                    <Warehouse size={20} aria-hidden="true" />
-                  </span>
-                  <div className="extensible">
-                    <p className="gras une-ligne">{site.nom}</p>
-                    <p className="texte-secondaire une-ligne" style={{ fontSize: 13 }}>
-                      {site.adresse}
-                    </p>
-                  </div>
-                </div>
-              </Carte>
-            ))}
-          </Cascade>
-        )}
-      </section>
-
-      <EncadreInfo>Au démarrage, Tôligo ajoute à la tournée les box de ces sites qui contiennent un colis, dans l'ordre de passage conseillé.</EncadreInfo>
-    </div>
-  );
+/** « TR-261125-03 · Planifiée ». */
+function sousTitreTournee(tournee) {
+  return [tournee.reference, infosStatutTournee(tournee.statut).libelle].filter(Boolean).join(' · ');
 }
 
-/** Tournée démarrée (ou close) : progression, arrêts et box, dépôt à la station. */
-function TourneeEnCours({ tournee, aBord, enCours, onFinirPassage, onAnomalie }) {
-  const total = tournee.arrets.length;
-  const traites = tournee.arrets.filter((a) => a.passageTermine).length;
-  const active = tournee.statut === 'en_cours';
-  // Un aide suit la tournée sans « Fin du passage » ni signalement.
-  const pilote = active && tournee.monRole !== 'aide';
-
-  return (
-    <div className="colonnes">
-      <div className="pile" style={{ gap: 18 }}>
-        {tournee.statut === 'terminee' && (
-          <div className="bilan bilan--succes">
-            <CircleCheck size={26} aria-hidden="true" />
-            <div>
-              <p className="bilan__titre">Tournée terminée</p>
-              <p className="bilan__texte">
-                {tournee.termineeLe ? `Close ${moment(tournee.termineeLe)}. ` : ''}Merci !
-              </p>
-            </div>
-          </div>
-        )}
-
-        {active && (
-          <div className="carte-sombre">
-            <div className="rangee" style={{ gap: 12 }}>
-              <span className="carte-sombre__icone">
-                <Truck size={22} aria-hidden="true" />
-              </span>
-              <div className="extensible">
-                <p className="titre" style={{ fontSize: 17 }}>
-                  {traites} site{traites > 1 ? 's' : ''} sur {total} visité{traites > 1 ? 's' : ''}
-                </p>
-                <p className="texte-secondaire" style={{ fontSize: 13 }}>
-                  {tournee.demarreeLe ? `Démarrée à ${heure(tournee.demarreeLe)}` : 'En cours'} · {aBord.length} colis à bord
-                </p>
-              </div>
-            </div>
-            <div style={{ marginTop: 14 }}>
-              <BarreProgression valeur={total === 0 ? 0 : traites / total} />
-            </div>
-          </div>
-        )}
-
-        <section>
-          <div className="titre-section">
-            <h2>Ramassage</h2>
-            <span className="texte-secondaire" style={{ fontSize: 13 }}>
-              {tournee.arrets.length} arrêt{tournee.arrets.length > 1 ? 's' : ''}
-            </span>
-          </div>
-          <Cascade className="pile" style={{ gap: 14 }}>
-            {tournee.arrets.map((arret, rang) => (
-              <ArretTournee
-                key={arret.entrepot?.id ?? rang}
-                arret={arret}
-                rang={rang}
-                active={pilote}
-                enCours={enCours}
-                onFinirPassage={() => onFinirPassage(arret)}
-                onAnomalie={onAnomalie}
-              />
-            ))}
-          </Cascade>
-        </section>
-      </div>
-
-      <div className="colonnes__droite pile" style={{ gap: 14 }}>
-        <CarteTournee tournee={tournee} />
-
-        <EquipeTournee tournee={tournee} />
-
-        <section className="depot-station">
-          <div className="rangee" style={{ gap: 12 }}>
-            <span className="vignette" style={{ background: 'var(--blanc)' }}>
-              <Flag size={20} aria-hidden="true" />
-            </span>
-            <div className="extensible">
-              <p className="etiquette-section" style={{ fontSize: 11.5 }}>
-                Dépôt à la station
-              </p>
-              <p className="gras une-ligne">{tournee.station?.nom ?? '—'}</p>
-            </div>
-            {coordonnees(tournee.station) && (
-              <a
-                className="petit-bouton rangee"
-                style={{ gap: 6, textDecoration: 'none', background: 'var(--blanc)' }}
-                href={lienItineraire(tournee.station.latitude, tournee.station.longitude)}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <Navigation size={15} aria-hidden="true" /> Y aller
-              </a>
-            )}
-          </div>
-
-          <p className="etiquette-section" style={{ margin: '16px 0 4px' }}>
-            À bord · {aBord.length}
-          </p>
-          {aBord.length === 0 ? (
-            <p className="texte-secondaire" style={{ fontSize: 13.5 }}>
-              Aucun colis dans le camion.
-            </p>
-          ) : (
-            aBord.map((colis) => (
-              <div className="ligne-colis" key={colis.codeSuivi}>
-                <Package size={18} aria-hidden="true" className="texte-secondaire" />
-                <div className="extensible">
-                  <p className="ligne-colis__code">{colis.codeSuivi}</p>
-                  {colis.format && <p className="ligne-colis__format">{colis.format}</p>}
-                </div>
-              </div>
-            ))
-          )}
-
-          {pilote && aBord.length > 0 && (
-            <p className="texte-secondaire" style={{ fontSize: 13, marginTop: 10 }}>
-              « Terminer la tournée », à la station, y dépose ces colis.
-            </p>
-          )}
-        </section>
-      </div>
-    </div>
-  );
-}
-
-/** Équipe de la tournée : le chauffeur (il la pilote) et ses aides. */
-function EquipeTournee({ tournee }) {
-  if (!tournee.chauffeur && tournee.aides.length === 0) return null;
-
-  return (
-    <section>
-      <div className="titre-section">
-        <h2>Équipe</h2>
-        <Users size={18} aria-hidden="true" className="texte-secondaire" />
-      </div>
-      <BlocGris style={{ padding: 4 }}>
-        {tournee.chauffeur && <LigneInfo libelle="Chauffeur" valeur={tournee.chauffeur.nomComplet} />}
-        {tournee.aides.map((aide) => (
-          <LigneInfo key={aide.id} libelle="Aide" valeur={aide.nomComplet} />
-        ))}
-      </BlocGris>
-    </section>
-  );
-}
-
-/** Un arrêt : le site, son adresse, ses box à vider, et « Fin du passage ». */
-function ArretTournee({ arret, rang, active, enCours, onFinirPassage, onAnomalie }) {
-  const site = arret.entrepot;
-  const fini = arret.passageTermine;
-
-  return (
-    <div className={`arret${fini ? ' arret--fini' : ''}`}>
-      <div className="arret__entete">
-        <span className="arret__numero">{fini ? <CircleCheck size={18} aria-hidden="true" /> : rang + 1}</span>
-        <div className="extensible">
-          <p className="gras une-ligne">{site?.nom ?? 'Site'}</p>
-          {site?.adresse && (
-            <p className="texte-secondaire une-ligne" style={{ fontSize: 13 }}>
-              {site.adresse}
-            </p>
-          )}
-        </div>
-        {active && !fini && coordonnees(site) && (
-          <a className="petit-bouton rangee" style={{ gap: 6, textDecoration: 'none' }} href={lienItineraire(site.latitude, site.longitude)} target="_blank" rel="noreferrer">
-            <Navigation size={15} aria-hidden="true" /> Y aller
-          </a>
-        )}
-      </div>
-
-      <div className="pile" style={{ gap: 8 }}>
-        {arret.passages.map((passage) => (
-          <CartePassage
-            key={passage.id}
-            passage={passage}
-            active={active}
-            onAnomalie={() => onAnomalie(passage)}
-          />
-        ))}
-      </div>
-
-      {active && !fini && site?.id && (
-        <Bouton variante="contour" icone={PackageCheck} enCours={enCours === `site-${site.id}`} onClick={onFinirPassage} style={{ marginTop: 10 }}>
-          Fin du passage
-        </Bouton>
-      )}
-    </div>
-  );
-}
-
-/** Un box de la tournée : son état, ses colis, et les actions possibles. */
-function CartePassage({ passage, active, onAnomalie }) {
-  const etat = infosEtatPassage(passage.etat);
-  const aVider = passage.etat === 'a_visiter';
-
-  return (
-    <Carte className={`passage passage--${passage.etat}`} ombre={aVider}>
-      <div className="rangee" style={{ gap: 12 }}>
-        <span className="vignette">
-          <IconeBox size={22} />
-        </span>
-        <div className="extensible">
-          <p className="gras">Box {passage.box?.numero ?? '?'}</p>
-          <p className="texte-secondaire" style={{ fontSize: 13 }}>
-            {aVider
-              ? `${passage.colisAPrendre.length} colis à prendre`
-              : passage.etat === 'visite'
-                ? `Vidé${passage.passeLe ? ` à ${heure(passage.passeLe)}` : ''}`
-                : 'Colis laissés pour la prochaine tournée'}
-          </p>
-        </div>
-        <Pastille ton={etat.ton} petite>
-          {etat.libelle}
-        </Pastille>
-      </div>
-
-      {passage.etat === 'anomalie' && passage.commentaire && <p className="passage__commentaire">« {passage.commentaire} »</p>}
-
-      {aVider && passage.colisAPrendre.length > 0 && (
-        <div className="passage__colis">
-          {passage.colisAPrendre.map((colis) => (
-            <span key={colis.codeSuivi} className="passage__code">
-              {colis.codeSuivi}
-              {colis.format && <small>{colis.format}</small>}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {aVider && active && (
-        <div className="passage__actions">
-          <Bouton variante="texte" compact icone={TriangleAlert} onClick={onAnomalie} className="passage__anomalie">
-            Signaler un problème
-          </Bouton>
-        </div>
-      )}
-    </Carte>
-  );
-}
-
-/** Repère numéroté d'un arrêt sur la carte (noir, gris une fois fini). */
-function iconeArret(numero, fini) {
+// ---------------------------------------------------------------------------
+// Carte des arrêts : entrepôts numérotés, station « A », trajet pointillé.
+// ---------------------------------------------------------------------------
+function repere(contenu, variante) {
   return L.divIcon({
     className: 'repere-carte',
-    html: `<span class="repere-arret${fini ? ' repere-arret--fini' : ''}">${numero}</span>`,
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
+    html: `<span class="repere-arret repere-arret--${variante}">${contenu}</span>`,
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
   });
 }
 
-/** Carte des arrêts et de la station d'arrivée. */
-function CarteTournee({ tournee }) {
-  const { position } = usePosition();
-  const arrets = tournee.arrets
-    .map((arret, rang) => ({ arret, rang, point: coordonnees(arret.entrepot) }))
-    .filter(({ point }) => point !== null);
-  const station = coordonnees(tournee.station);
+const COCHE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
 
-  const points = [...arrets.map(({ point }) => point), station].filter(Boolean);
+/** `arrets` : [{ point, etat: 'a_venir' | 'courant' | 'fait', rang }] dans l'ordre ; puis la station. */
+function CarteArrets({ arrets, station }) {
+  const pointStation = coordonnees(station);
+  const situes = arrets.filter((arret) => arret.point);
+  const points = [...situes.map((arret) => arret.point), pointStation].filter(Boolean);
   if (points.length === 0) return null;
 
+  // Trajet : plein (orange) jusqu'à l'arrêt en cours, pointillé ensuite.
+  const indexCourant = situes.findIndex((arret) => arret.etat !== 'fait');
+  const fait = indexCourant === -1 ? points : points.slice(0, indexCourant + 1);
+  const reste = indexCourant === -1 ? [] : points.slice(Math.max(0, indexCourant));
+
   return (
-    <div className="cadre-carte">
+    <div className="cadre-carte cadre-carte--tournee">
       <CarteOsm centre={points[0]} zoom={13}>
-        {arrets.map(({ arret, rang, point }) => (
-          <Marker
-            key={arret.entrepot.id || rang}
-            position={point}
-            icon={iconeArret(rang + 1, arret.passageTermine)}
-          />
+        {fait.length > 1 && <Polyline positions={fait} pathOptions={{ color: '#C94A0A', weight: 4 }} />}
+        {reste.length > 1 && <Polyline positions={reste} pathOptions={{ color: '#121212', weight: 4, dashArray: '2 10', lineCap: 'round' }} />}
+        {situes.map((arret, i) => (
+          <Marker key={i} position={arret.point} icon={repere(arret.etat === 'fait' ? COCHE : String(arret.rang), arret.etat)} />
         ))}
-        {station && <Marker position={station} icon={iconeStation(true)} />}
-        {position && tournee.statut === 'en_cours' && <Marker position={position} icon={iconeClient()} />}
+        {pointStation && <Marker position={pointStation} icon={repere('A', 'station')} />}
         <Cadrage points={points} marge={36} />
       </CarteOsm>
     </div>
   );
 }
 
-/** Pied : l'étape suivante de la tournée. */
-function PiedTournee({ tournee, aBord, enCours, onDemarrer, onFinirPassage, onTerminer, onRetour }) {
-  if (tournee.monRole === 'aide') {
-    return (
-      <PiedDAction entete={<p className="pied__note extensible">Vous êtes aide : {tournee.chauffeur?.nomComplet ?? 'le chauffeur'} pilote la tournée.</p>}>
-        <Bouton variante="secondaire" onClick={onRetour}>
-          Retour aux tournées
-        </Bouton>
-      </PiedDAction>
-    );
-  }
-
-  if (tournee.statut === 'planifiee') {
-    return (
-      <PiedDAction arrondi>
-        <Bouton icone={Play} enCours={enCours === 'demarrer'} onClick={onDemarrer}>
-          Démarrer la tournée
-        </Bouton>
-      </PiedDAction>
-    );
-  }
-
-  if (tournee.statut !== 'en_cours') {
-    return (
-      <PiedDAction>
-        <Bouton variante="secondaire" onClick={onRetour}>
-          Retour aux tournées
-        </Bouton>
-      </PiedDAction>
-    );
-  }
-
-  // Prochain site à visiter, dans l'ordre de passage.
-  const prochain = tournee.arrets.find((a) => !a.passageTermine && a.entrepot?.id);
-
-  if (prochain) {
-    return (
-      <PiedDAction arrondi entete={<p className="pied__note extensible">Prochain arrêt : {prochain.entrepot.nom}</p>}>
-        <Bouton icone={PackageCheck} enCours={enCours === `site-${prochain.entrepot.id}`} onClick={() => onFinirPassage(prochain)}>
-          Fin du passage
-        </Bouton>
-        <Bouton variante="texte" icone={Flag} enCours={enCours === 'terminer'} onClick={onTerminer}>
-          Terminer la tournée
-        </Bouton>
-      </PiedDAction>
-    );
-  }
+/** Véhicule et horaires, puis l'équipe (chauffeur et aides). */
+function InfoTournee({ tournee }) {
+  const membres = [
+    tournee.chauffeur && { ...tournee.chauffeur, role: 'chauffeur' },
+    ...tournee.aides.map((aide) => ({ ...aide, role: 'aide' })),
+  ].filter(Boolean);
 
   return (
-    <PiedDAction
-      arrondi
-      entete={
-        aBord.length > 0 && (
-          <p className="pied__note extensible">
-            Sites visités : à {tournee.station?.nom ?? 'la station'}, terminez la tournée pour y déposer les {aBord.length} colis.
-          </p>
-        )
-      }
-    >
-      <Bouton variante="accent" icone={Flag} enCours={enCours === 'terminer'} onClick={onTerminer}>
-        Terminer la tournée
-      </Bouton>
-    </PiedDAction>
+    <div className="liste-carte">
+      <div className="liste-carte__ligne">
+        <span className="vignette-colis" aria-hidden="true">
+          <Truck size={20} />
+        </span>
+        <span className="liste-carte__texte" style={{ fontSize: 15 }}>
+          {tournee.vehicule ? (
+            <>
+              <b>{nomVehicule(tournee.vehicule)}</b>
+              {tournee.vehicule.capaciteKg ? <span className="texte-secondaire"> · {tournee.vehicule.capaciteKg} kg</span> : null}
+            </>
+          ) : (
+            <span className="texte-secondaire">Véhicule non indiqué</span>
+          )}
+        </span>
+        <span className="texte-secondaire" style={{ whiteSpace: 'nowrap' }}>
+          {plage(tournee.planifieeLe, tournee.finPrevueLe)}
+        </span>
+      </div>
+      {membres.length > 0 && (
+        <div className="liste-carte__ligne">
+          <span className="avatars-equipe">
+            {membres.map((membre) => (
+              <AvatarInitiales
+                key={membre.id}
+                nom={membre.nomComplet}
+                taille={40}
+                accent={membre.role === 'aide'}
+                fond={membre.role === 'chauffeur' ? 'var(--encre)' : undefined}
+                couleur={membre.role === 'chauffeur' ? 'var(--blanc)' : undefined}
+              />
+            ))}
+          </span>
+          <span className="liste-carte__texte" style={{ fontSize: 14.5 }}>
+            {membres.map((membre) => `${membre.nomComplet} (${membre.role})`).join(' · ')}
+          </span>
+        </div>
+      )}
+    </div>
   );
 }
 
-/** Raisons fréquentes, pour ne pas tout taper au téléphone. */
-const RAISONS = ["Le box ne s'ouvre pas", 'Colis absent du box', 'Colis abîmé', 'Accès au site impossible'];
-
-/** Fenêtre « Anomalie » sur un box : décrire le problème (obligatoire). */
-function FenetreAnomalie({ passage, onFermer, onEnregistrer }) {
-  const [commentaire, setCommentaire] = useState('');
-  const [erreur, setErreur] = useState(null);
-  const [enCours, setEnCours] = useState(false);
-
-  async function enregistrer() {
-    if (!commentaire.trim()) {
-      setErreur('Décrivez le problème.');
-      return;
-    }
-    setEnCours(true);
-    await onEnregistrer(commentaire.trim());
-    setEnCours(false);
-    setCommentaire('');
-  }
+// ---------------------------------------------------------------------------
+// Tournée prévue (maquette LV-Ram-Tournee)
+// ---------------------------------------------------------------------------
+function TourneePrevue({ tournee, enCours, onDemarrer }) {
+  const sites = tournee.sites ?? [];
+  const pilote = tournee.monRole !== 'aide';
 
   return (
-    <Modale
-      ouverte={passage !== null}
-      onFermer={onFermer}
-      titre={`Anomalie · Box ${passage?.box?.numero ?? ''}`}
+    <Page
+      titre="Tournée de ramassage"
+      entete={
+        <EnTete
+          titre="Tournée de ramassage"
+          sousTitre={sousTitreTournee(tournee)}
+          gris
+          repli={Routes.tournees}
+          actions={!pilote && <Pastille ton="sombre">Aide</Pastille>}
+        />
+      }
       pied={
-        <Bouton variante="accent" enCours={enCours} onClick={enregistrer}>
-          Signaler l'anomalie
-        </Bouton>
+        <PiedDAction arrondi>
+          {pilote ? (
+            <Bouton icone={Navigation} enCours={enCours} onClick={onDemarrer}>
+              Démarrer la tournée
+            </Bouton>
+          ) : (
+            <p className="texte-secondaire" style={{ textAlign: 'center', fontSize: 14 }}>
+              {prenom(tournee.chauffeur?.nomComplet) || 'Le chauffeur'} démarrera la tournée.
+            </p>
+          )}
+        </PiedDAction>
       }
     >
-      <p className="modale__texte">Les colis restent dans le box et seront proposés à la prochaine tournée. L'équipe Tôligo est prévenue.</p>
-      <div className="defilement-horizontal" style={{ flexWrap: 'wrap', margin: '14px 0', outline: 'none' }} tabIndex={-1} data-focus-initial>
-        {RAISONS.map((raison) => (
-          <Puce
-            key={raison}
-            choisie={commentaire === raison}
-            onClick={() => {
-              setCommentaire(raison);
-              setErreur(null);
-            }}
-          >
-            {raison}
-          </Puce>
-        ))}
+      <div className="pile" style={{ gap: 14 }}>
+        <CarteArrets
+          arrets={sites.map((site, i) => ({ point: coordonnees(site), etat: 'a_venir', rang: i + 1 }))}
+          station={tournee.station}
+        />
+        <InfoTournee tournee={tournee} />
+
+        <section>
+          <div className="titre-bloc">
+            <span className="etiquette-section">Entrepôts à visiter</span>
+            <span className="titre-bloc__precision">du plus proche au plus loin</span>
+          </div>
+          <Cascade className="liste-carte">
+            {sites.map((site, i) => (
+              <div key={site.id} className="liste-carte__ligne">
+                <span className="rond-arret">{i + 1}</span>
+                <span className="liste-carte__texte">
+                  <span className="liste-carte__titre" style={{ display: 'block' }}>
+                    {site.nom}
+                  </span>
+                  <span className="liste-carte__detail" style={{ display: 'block' }}>
+                    Box ajoutés au démarrage
+                  </span>
+                </span>
+              </div>
+            ))}
+            <div className="liste-carte__ligne">
+              <span className="rond-arret rond-arret--station">A</span>
+              <span className="liste-carte__texte">
+                <span className="liste-carte__titre" style={{ display: 'block' }}>
+                  {tournee.station?.nom ?? 'Station'}
+                </span>
+                <span className="liste-carte__detail" style={{ display: 'block' }}>
+                  Dépôt de tous les colis
+                </span>
+              </span>
+            </div>
+          </Cascade>
+        </section>
       </div>
-      <Champ
-        libelle="Description"
-        multiligne
-        bordee
-        value={commentaire}
-        maxLength={1000}
-        erreur={erreur}
-        placeholder="Ex. : la serrure clignote rouge, le box reste fermé"
-        onChange={(e) => {
-          setCommentaire(e.target.value);
-          setErreur(null);
-        }}
-      />
-    </Modale>
+    </Page>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Passage à un entrepôt (maquette LV-Ram-Passage)
+// ---------------------------------------------------------------------------
+function PassageEntrepot({ tournee, arret, enCours, onFinir, onProbleme }) {
+  const rang = tournee.arrets.indexOf(arret) + 1;
+  const total = tournee.arrets.length;
+  const site = arret.entrepot;
+  const aPrendre = arret.passages.filter((p) => p.etat === 'a_visiter').reduce((somme, p) => somme + p.colisAPrendre.length, 0);
+
+  return (
+    <Page
+      titre={`Entrepôt ${rang} sur ${total}`}
+      entete={
+        <EnTete
+          titre={`Entrepôt ${rang} sur ${total}`}
+          sousTitre="Tournée en cours"
+          gris
+          repli={Routes.tournees}
+          actions={<Pastille ton="accent">En mission</Pastille>}
+        />
+      }
+      pied={
+        <PiedDAction arrondi>
+          <Bouton enCours={enCours} onClick={() => onFinir(aPrendre)}>
+            Fin du passage · {aPrendre} colis
+          </Bouton>
+          <button type="button" className="lien-rouge" onClick={onProbleme}>
+            <TriangleAlert size={20} aria-hidden="true" /> Signaler un problème
+          </button>
+        </PiedDAction>
+      }
+    >
+      {/* Avancement : entrepôts, puis la station. */}
+      <div className="avancement-tournee">
+        {tournee.arrets.map((a, i) => (
+          <span
+            key={a.entrepot?.id ?? i}
+            className={`avancement-tournee__etape${a.passageTermine ? ' avancement-tournee__etape--faite' : a === arret ? ' avancement-tournee__etape--courante' : ''}`}
+          >
+            <span className="une-ligne">{nomCourt(a.entrepot?.nom)}</span>
+          </span>
+        ))}
+        <span className="avancement-tournee__etape">
+          <span className="une-ligne">Station A</span>
+        </span>
+      </div>
+
+      <div className="site-passage">
+        <span className="site-passage__tuile" aria-hidden="true">
+          <Warehouse size={30} />
+        </span>
+        <span className="extensible">
+          <span className="site-passage__nom">{site.nom}</span>
+          {site.adresse && <span className="site-passage__adresse">{site.adresse}</span>}
+        </span>
+        {coordonnees(site) && (
+          <a className="site-passage__itineraire" href={lienItineraire(site.latitude, site.longitude)} target="_blank" rel="noreferrer" aria-label="Itinéraire">
+            <Navigation size={22} />
+          </a>
+        )}
+      </div>
+
+      <div className="titre-bloc" style={{ marginTop: 18 }}>
+        <span className="etiquette-section">Box de la tournée</span>
+        <span className="titre-bloc__precision">{aPrendre} colis à prendre</span>
+      </div>
+      <Cascade className="liste-carte">
+        {arret.passages.map((passage) => (
+          <LigneBox key={passage.id} passage={passage} />
+        ))}
+      </Cascade>
+
+      <div style={{ marginTop: 14 }}>
+        <EncadreInfo icone={Lock}>Ouvrez les box avec l’application TTLock de l’entrepôt. Aucun scan : videz-les puis appuyez sur « Fin du passage ».</EncadreInfo>
+      </div>
+    </Page>
+  );
+}
+
+/** « Entrepôt Riviera 2 » -> « Riviera 2 ». */
+function nomCourt(nom) {
+  return (nom ?? 'Site').replace(/^(entrep[oô]t|site|point relais)\s+/i, '');
+}
+
+/** Un box : numéro, colis à prendre (illustrations), ou exclu après un problème. */
+function LigneBox({ passage }) {
+  const exclu = passage.etat === 'anomalie';
+  const vide = passage.etat === 'visite';
+  const numero = passage.box?.numero ?? '?';
+
+  return (
+    <div className="liste-carte__ligne">
+      <span className={`numero-box${exclu ? ' numero-box--exclu' : ''}`}>{numero}</span>
+      <span className="liste-carte__texte">
+        <span className="liste-carte__titre" style={{ display: 'block' }}>
+          Box {numero}
+        </span>
+        <span className="liste-carte__detail" style={{ display: 'block', color: exclu ? 'var(--erreur)' : undefined }}>
+          {exclu ? `${passage.commentaire ?? 'Problème'} · problème signalé` : vide ? 'Vidé' : `${passage.colisAPrendre.length} colis à prendre`}
+        </span>
+      </span>
+      <span className="colis-box" aria-hidden="true">
+        {passage.colisAPrendre.slice(0, 2).map((colis) => (
+          <Illustration key={colis.codeSuivi} nom={illustrationColis(colis.format)} taille={40} carre={false} />
+        ))}
+      </span>
+      {exclu && <Pastille ton="erreur">Exclu</Pastille>}
+      {vide && <Pastille ton="succes">Vidé</Pastille>}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Arrivée en station (maquette LV-Ram-Terminer), et tournée close
+// ---------------------------------------------------------------------------
+function ArriveeStation({ tournee, aBord, enCours, onTerminer }) {
+  const naviguer = useNavigate();
+  const [toutVoir, setToutVoir] = useState(false);
+  const close = tournee.statut !== 'en_cours';
+  const visites = tournee.arrets.filter((arret) => arret.passageTermine).length;
+  const signales = tournee.passages.filter((passage) => passage.etat === 'anomalie').length;
+  const affiches = toutVoir ? aBord : aBord.slice(0, 4);
+
+  return (
+    <Page
+      titre={close ? 'Tournée terminée' : 'Arrivée en station'}
+      entete={<EnTete titre={close ? 'Tournée terminée' : 'Arrivée en station'} sousTitre={`${tournee.station?.nom ?? 'Station'} (A)`} gris repli={Routes.tournees} />}
+      pied={
+        <PiedDAction arrondi>
+          {close ? (
+            <Bouton variante="secondaire" onClick={() => naviguer(Routes.tournees)}>
+              Retour aux tournées
+            </Bouton>
+          ) : (
+            <Bouton icone={Check} enCours={enCours} onClick={onTerminer}>
+              Terminer la tournée
+            </Bouton>
+          )}
+        </PiedDAction>
+      }
+    >
+      <div className="tuiles-arrivee">
+        <div className="tuile-arrivee">
+          <span className="tuile-arrivee__nombre">{aBord.length}</span>
+          <span className="tuile-arrivee__libelle">colis à bord</span>
+        </div>
+        <div className="tuile-arrivee">
+          <span className="tuile-arrivee__nombre">{visites}</span>
+          <span className="tuile-arrivee__libelle">
+            entrepôt{visites > 1 ? 's' : ''} visité{visites > 1 ? 's' : ''}
+          </span>
+        </div>
+        <div className={`tuile-arrivee${signales > 0 ? ' tuile-arrivee--accent' : ''}`}>
+          <span className="tuile-arrivee__nombre">{signales}</span>
+          <span className="tuile-arrivee__libelle">box signalé{signales > 1 ? 's' : ''}</span>
+        </div>
+      </div>
+
+      {close ? (
+        <div className="bandeau-succes" style={{ marginTop: 14 }}>
+          <span className="bandeau-succes__rond">
+            <Check size={16} strokeWidth={3} aria-hidden="true" />
+          </span>
+          Tournée terminée : colis déposés à la station.
+        </div>
+      ) : (
+        <>
+          <div className="titre-bloc" style={{ marginTop: 18 }}>
+            <span className="etiquette-section">À bord du camion</span>
+          </div>
+          {aBord.length === 0 ? (
+            <p className="texte-secondaire" style={{ fontSize: 14 }}>
+              Aucun colis dans le camion.
+            </p>
+          ) : (
+            <Cascade className="liste-carte">
+              {affiches.map((colis) => (
+                <LigneColis key={colis.codeSuivi} colis={colis} detail={[colis.format, colis.entrepot ? nomCourt(colis.entrepot) : null].filter(Boolean).join(' · ')} />
+              ))}
+              {aBord.length > 4 && !toutVoir && (
+                <button type="button" className="liste-carte__ligne liste-carte__plus" onClick={() => setToutVoir(true)}>
+                  Voir les {aBord.length - 4} autres colis
+                </button>
+              )}
+            </Cascade>
+          )}
+          <div style={{ marginTop: 14 }}>
+            <EncadreInfo icone={House}>Tous les colis sont déposés d’un coup à la station. Le gestionnaire les pèse et les mesure ensuite un par un.</EncadreInfo>
+          </div>
+        </>
+      )}
+    </Page>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Vue de l'aide (maquette LV-Ram-Aide)
+// ---------------------------------------------------------------------------
+function VueAide({ tournee, aBord }) {
+  const indexCourant = tournee.arrets.findIndex((arret) => !arret.passageTermine);
+
+  return (
+    <Page
+      titre="Tournée de ramassage"
+      entete={
+        <EnTete
+          titre="Tournée de ramassage"
+          sousTitre={sousTitreTournee(tournee)}
+          gris
+          repli={Routes.tournees}
+          actions={<Pastille ton="sombre">Aide</Pastille>}
+        />
+      }
+    >
+      <div className="pile" style={{ gap: 14 }}>
+        <div className="bandeau-aide">
+          <AvatarInitiales nom={tournee.chauffeur?.nomComplet} taille={44} fond="var(--blanc)" couleur="var(--encre)" />
+          <p>
+            <b>Vous êtes aide</b> : {tournee.chauffeur?.nomComplet ?? 'le chauffeur'} pilote la tournée.
+          </p>
+        </div>
+
+        <CarteArrets
+          arrets={tournee.arrets.map((arret, i) => ({
+            point: coordonnees(arret.entrepot),
+            rang: i + 1,
+            etat: arret.passageTermine ? 'fait' : i === indexCourant ? 'courant' : 'a_venir',
+          }))}
+          station={tournee.station}
+        />
+        <InfoTournee tournee={tournee} />
+
+        <section>
+          <div className="titre-bloc">
+            <span className="etiquette-section">Avancement</span>
+            <span className="titre-bloc__precision">{aBord.length} colis à bord</span>
+          </div>
+          <Cascade className="liste-carte">
+            {tournee.arrets.map((arret, i) => {
+              const etat = arret.passageTermine ? 'fait' : i === indexCourant ? 'courant' : 'a_venir';
+              return (
+                <div key={arret.entrepot?.id ?? i} className="liste-carte__ligne">
+                  <span className={`rond-arret${etat === 'fait' ? ' rond-arret--fait' : etat === 'courant' ? ' rond-arret--courant' : ''}`}>
+                    {etat === 'fait' ? <Check size={16} strokeWidth={3} /> : i + 1}
+                  </span>
+                  <span className="liste-carte__texte">
+                    <span className="liste-carte__titre" style={{ display: 'block' }}>
+                      {arret.entrepot?.nom ?? 'Entrepôt'}
+                    </span>
+                    <span className="liste-carte__detail" style={{ display: 'block' }}>
+                      {etat === 'fait' ? `Passage terminé · ${arret.passages.length} box` : etat === 'courant' ? 'En cours' : 'À venir'}
+                    </span>
+                  </span>
+                </div>
+              );
+            })}
+          </Cascade>
+        </section>
+      </div>
+    </Page>
   );
 }

@@ -1,0 +1,62 @@
+/* =========================================================================
+   Mon activité (maquette LV-Activite).
+   ========================================================================= */
+.activite__entete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.activite__titre {
+  font-size: 26px;
+  letter-spacing: -0.4px;
+}
+
+.tuiles-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.tuile-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 16px;
+  border-radius: 22px;
+  background: var(--surface);
+}
+
+.tuile-stat__nombre {
+  font-family: var(--police-titre);
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.tuile-stat__libelle {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--texte-secondaire);
+}
+
+.tuile-stat--accent {
+  background: var(--accent-clair);
+}
+
+.tuile-stat--accent .tuile-stat__nombre,
+.tuile-stat--accent .tuile-stat__libelle {
+  color: var(--accent-fonce);
+}
+
+.activite__icone {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--surface);
+}

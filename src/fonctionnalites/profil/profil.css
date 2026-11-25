@@ -1,17 +1,98 @@
 /* =========================================================================
-   Profil du livreur.
+   Mon profil (maquette LV-Profil).
    ========================================================================= */
 .profil__identite {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 22px;
-  padding: 18px;
+  gap: 4px;
+  margin: 4px 0 20px;
+  text-align: center;
+}
+
+.profil__identite .avatar {
+  margin-bottom: 10px;
+  font-family: var(--police-titre);
+  font-weight: 600;
+}
+
+.profil__nom {
+  font-family: var(--police-titre);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.profil__telephone {
+  margin-bottom: 10px;
+  font-size: 14px;
+  color: var(--texte-secondaire);
+}
+
+.profil__icone {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--surface);
+}
+
+.profil__position {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 14px;
   border-radius: var(--rayon-carte);
   background: var(--surface);
 }
 
-.profil__nom {
-  font-size: 20px;
-  letter-spacing: -0.3px;
+.profil__position-icone {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--blanc);
+}
+
+.profil__position-titre {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.profil__position-texte {
+  display: block;
+  margin-top: 1px;
+  font-size: 13px;
+  color: var(--texte-secondaire);
+}
+
+.profil__note {
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--texte-secondaire);
+  text-align: center;
+}
+
+.profil__deconnexion {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 56px;
+  border: 0;
+  border-radius: var(--rayon-pilule);
+  background: var(--erreur-clair);
+  color: var(--erreur);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.profil__deconnexion:disabled {
+  opacity: 0.6;
 }

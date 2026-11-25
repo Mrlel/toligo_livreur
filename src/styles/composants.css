@@ -45,6 +45,15 @@
   background: var(--accent-survol);
 }
 
+.bouton--rouge {
+  background: var(--erreur);
+  color: var(--blanc);
+}
+
+.bouton--rouge:hover:not(:disabled) {
+  background: #9a1e14;
+}
+
 .bouton--secondaire {
   background: var(--surface);
   color: var(--encre);

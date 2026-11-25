@@ -14,11 +14,26 @@ import { useSession } from '../session/Session';
  * Les écrans lisent la dernière position connue avec `usePosition()` :
  * repère « vous » sur les cartes, coordonnées jointes à la remise d'un colis.
  *
- * `etat` : 'inactif' (hors service), 'recherche', 'partagee', 'refusee'
- * (autorisation refusée dans le navigateur) ou 'indisponible' (pas de GPS,
- * page en HTTP sur un téléphone...).
+ * Le livreur peut couper l'envoi depuis son profil (« Partager ma position »,
+ * activé par défaut, choix gardé sur le téléphone) : la station ne le voit
+ * plus sur la carte.
+ *
+ * `etat` : 'inactif' (hors service), 'coupee' (partage coupé par le livreur),
+ * 'recherche', 'partagee', 'refusee' (autorisation refusée dans le
+ * navigateur) ou 'indisponible' (pas de GPS, page en HTTP sur un téléphone...).
  */
-const ContextePosition = createContext({ etat: 'inactif', position: null });
+const ContextePosition = createContext({ etat: 'inactif', position: null, partageActive: true, changerPartage: () => {} });
+
+/** Choix « Partager ma position », gardé sur le téléphone. */
+const CLE_PARTAGE = 'toligo_livreur_partage_position';
+
+function lirePartage() {
+  try {
+    return window.localStorage.getItem(CLE_PARTAGE) !== 'non';
+  } catch {
+    return true;
+  }
+}
 
 /** Délai minimal entre deux envois au serveur (la route accepte 120 appels par minute). */
 const INTERVALLE_ENVOI = 30000;
@@ -29,6 +44,16 @@ const STATUTS_EN_SERVICE = ['disponible', 'en_mission'];
 export function FournisseurPosition({ children }) {
   const { profil } = useSession();
   const enService = Boolean(profil) && STATUTS_EN_SERVICE.includes(profil.statut);
+  const [partageActive, setPartageActive] = useState(lirePartage);
+
+  function changerPartage(actif) {
+    setPartageActive(actif);
+    try {
+      window.localStorage.setItem(CLE_PARTAGE, actif ? 'oui' : 'non');
+    } catch {
+      // Stockage indisponible (navigation privée) : le choix vaut pour la session.
+    }
+  }
 
   const [etat, setEtat] = useState('inactif');
   const [position, setPosition] = useState(null);
@@ -38,6 +63,10 @@ export function FournisseurPosition({ children }) {
   useEffect(() => {
     if (!enService) {
       setEtat('inactif');
+      return undefined;
+    }
+    if (!partageActive) {
+      setEtat('coupee');
       return undefined;
     }
     if (!('geolocation' in navigator)) {
@@ -82,12 +111,12 @@ export function FournisseurPosition({ children }) {
       navigator.geolocation.clearWatch(suivi);
       clearInterval(relance);
     };
-  }, [enService]);
+  }, [enService, partageActive]);
 
-  return <ContextePosition.Provider value={{ etat, position }}>{children}</ContextePosition.Provider>;
+  return <ContextePosition.Provider value={{ etat, position, partageActive, changerPartage }}>{children}</ContextePosition.Provider>;
 }
 
-/** `const { etat, position } = usePosition();` — `position` : [latitude, longitude] ou null. */
+/** `const { etat, position, partageActive, changerPartage } = usePosition();` — `position` : [latitude, longitude] ou null. */
 export function usePosition() {
   return useContext(ContextePosition);
 }
@@ -103,6 +132,8 @@ export function texteEtatPosition(etat) {
       return 'Position bloquée : autorisez la localisation pour cette application dans le navigateur.';
     case 'indisponible':
       return 'Position introuvable : activez la localisation du téléphone.';
+    case 'coupee':
+      return 'Partage coupé : votre station ne vous voit plus sur la carte.';
     default:
       return 'Position non partagée tant que vous êtes en pause ou indisponible.';
   }

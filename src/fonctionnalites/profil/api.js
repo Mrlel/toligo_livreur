@@ -49,7 +49,7 @@ export function seDeconnecter() {
  */
 export const STATUTS_LIVREUR = {
   disponible: { libelle: 'Disponible', ton: 'succes', couleur: 'var(--succes)' },
-  en_mission: { libelle: 'En mission', ton: 'accent', couleur: 'var(--accent)' },
+  en_mission: { libelle: 'En mission', ton: 'accent', couleur: 'var(--accent-vif)' },
   en_pause: { libelle: 'En pause', ton: 'neutre', couleur: 'var(--texte-discret)' },
   indisponible: { libelle: 'Indisponible', ton: 'neutre', couleur: 'var(--gris-rond)' },
   incident: { libelle: 'Incident', ton: 'erreur', couleur: 'var(--erreur)' },

@@ -1,214 +1,535 @@
 /* =========================================================================
-   Livraisons à domicile : liste, détail, remise.
+   Livraison à domicile (maquettes LV-Liv-*).
    ========================================================================= */
 
 /* ------------------------------------------------------------------------
-   Carte d'une livraison (liste et accueil)
+   Destinataire
    ------------------------------------------------------------------------ */
-.carte-mission__haut {
+.destinataire {
+  padding: 16px;
+}
+
+.destinataire__nom {
+  font-family: var(--police-titre);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.destinataire__adresse {
+  display: flex;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--bordure);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.destinataire__adresse svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.destinataire__paiement {
   display: flex;
   align-items: center;
   gap: 12px;
-}
-
-.carte-mission__nom {
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.carte-mission__adresse {
-  font-size: 13px;
-  color: var(--texte-secondaire);
-}
-
-.carte-mission__bas {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--surface-alt);
-}
-
-.carte-mission__info {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--info);
-}
-
-.carte-mission__info svg {
-  flex: none;
-  color: var(--texte-secondaire);
-}
-
-.carte-mission__montant {
-  margin-left: auto;
-}
-
-/* ------------------------------------------------------------------------
-   Espèces à reverser
-   ------------------------------------------------------------------------ */
-.carte-especes {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  margin-bottom: 16px;
-  padding: 16px;
-  border-radius: var(--rayon-carte);
+  margin-top: 14px;
+  padding: 12px 16px;
+  border-radius: var(--rayon-champ);
   background: var(--accent-clair);
   color: var(--accent-fonce);
-}
-
-.carte-especes__icone {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 16px;
-  background: var(--blanc);
-  color: var(--accent);
-}
-
-.carte-especes__libelle {
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.carte-especes__montant {
-  font-family: var(--police-titre);
-  font-size: 24px;
+  font-size: 15px;
   font-weight: 600;
-  letter-spacing: -0.4px;
+}
+
+.destinataire__montant {
+  font-family: var(--police-titre);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* Véhicule de la mission : bloc gris. */
+.ligne-vehicule {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: var(--rayon-carte);
+  background: var(--surface);
+  font-size: 15px;
+  color: var(--texte-secondaire);
+}
+
+.ligne-vehicule b {
   color: var(--encre);
 }
 
-.carte-especes__note {
-  margin-top: 2px;
-  font-size: 13px;
+.ligne-vehicule__icone {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--blanc);
+  color: var(--encre);
+}
+
+/* Appeler (noir, large) · SMS (gris). */
+.contact-destinataire {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 10px;
 }
 
 /* ------------------------------------------------------------------------
-   Détail d'une livraison
+   Prise des colis : lecteur de QR code
    ------------------------------------------------------------------------ */
-.adresse-livraison {
+.scanner {
+  position: relative;
+  height: 240px;
+  overflow: hidden;
+  border-radius: 26px;
+  background: #1f1f21;
+}
+
+.scanner__video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.scanner__message {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  margin-top: 14px;
-  padding: 14px;
-  border-radius: var(--rayon-champ);
-  background: var(--surface);
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  color: #c6c6cb;
   font-size: 14px;
-  line-height: 1.45;
+  text-align: center;
 }
 
-.adresse-livraison__instructions {
-  margin-top: 4px;
-  font-style: italic;
-  color: var(--info);
+.scanner__cadre {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 160px;
+  height: 160px;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  border-radius: 14px;
+  transform: translate(-50%, -56%);
+  box-shadow: 0 0 0 999px rgba(18, 18, 18, 0.35);
 }
 
-/* Paiement à la livraison. */
-.carte-paiement {
+.scanner__ligne {
+  position: absolute;
+  top: 44%;
+  left: 50%;
+  width: 150px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent-vif);
+  transform: translateX(-50%);
+  animation: balayer 1.8s ease-in-out infinite alternate;
+}
+
+@keyframes balayer {
+  from {
+    margin-top: -62px;
+  }
+  to {
+    margin-top: 62px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scanner__ligne {
+    animation: none;
+  }
+}
+
+.scanner__lampe {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--blanc);
+}
+
+.scanner__bandeau {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100% - 28px);
+  height: 40px;
+  padding: 0 16px 0 8px;
+  border-radius: var(--rayon-pilule);
+  background: var(--blanc);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.scanner__bandeau-rond {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--succes);
+  color: var(--blanc);
+}
+
+.scanner__bandeau--inconnu .scanner__bandeau-rond {
+  background: var(--erreur);
+}
+
+.jauge--verte .jauge__barre {
+  background: var(--succes);
+}
+
+.coche-verte {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--succes);
+  color: var(--blanc);
+}
+
+.coche-vide {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--gris-rond);
+  border-radius: 50%;
+}
+
+.lien-discret {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--texte-secondaire);
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------------
+   En route : carte plein écran et feuille du bas
+   ------------------------------------------------------------------------ */
+.page--navigation .page__corps {
+  padding: 0;
+  max-width: none;
+}
+
+.navigation {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.navigation__carte {
+  position: relative;
+  flex: 1;
+  min-height: 360px;
+  background: var(--fond-carte);
+}
+
+.navigation__carte .carte-osm,
+.navigation__carte .leaflet-container {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  border-radius: 0;
+}
+
+.navigation__sans-carte {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  min-height: 360px;
+  color: var(--texte-secondaire);
+}
+
+.navigation__haut {
+  position: absolute;
+  top: calc(16px + env(safe-area-inset-top));
+  left: 16px;
+  right: 16px;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.navigation__consigne {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 12px 18px;
+  border-radius: 22px;
+  background: var(--encre);
+  color: var(--blanc);
+  text-decoration: none;
+}
+
+.navigation__consigne-titre {
+  display: block;
+  font-size: 15.5px;
+  font-weight: 700;
+}
+
+.navigation__consigne-texte {
+  display: block;
+  margin-top: 1px;
+  font-size: 13px;
+  color: #c6c6cb;
+}
+
+.navigation__position {
+  position: absolute;
+  right: 16px;
+  bottom: 40px;
+  z-index: 500;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--blanc);
+  box-shadow: var(--ombre-flottante);
+}
+
+.navigation__feuille {
+  position: relative;
+  z-index: 600;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 16px;
-  border: 1.5px solid var(--accent-clair);
-  border-radius: var(--rayon-carte);
-  background: var(--accent-pale);
+  margin-top: -24px;
+  padding: 12px 20px calc(16px + env(safe-area-inset-bottom));
+  border-radius: 28px 28px 0 0;
+  background: var(--blanc);
+  box-shadow: 0 -6px 24px rgba(18, 18, 18, 0.08);
 }
 
-.carte-paiement__icone {
+.navigation__poignee {
+  align-self: center;
+  width: 40px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--bordure);
+}
+
+.navigation__distance {
+  font-family: var(--police-titre);
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.navigation__distance span {
+  font-family: var(--police-corps);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--texte-secondaire);
+}
+
+.navigation__destinataire {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--rayon-carte);
+  background: var(--surface);
+}
+
+.navigation__rond {
   flex: none;
   display: grid;
   place-items: center;
   width: 44px;
   height: 44px;
-  border-radius: 16px;
-  background: var(--accent-clair);
-  color: var(--accent);
+  border-radius: 50%;
+  background: var(--blanc);
+  color: var(--encre);
 }
 
-.carte-paiement__texte {
-  font-size: 13.5px;
-  line-height: 1.45;
-  color: var(--info);
-}
-
-.carte-paiement .bouton {
-  align-self: flex-start;
-  width: auto;
-}
-
-.encadre-probleme {
-  margin-top: 14px;
+.navigation__rond--noir {
+  background: var(--encre);
+  color: var(--blanc);
 }
 
 /* ------------------------------------------------------------------------
-   Remise : code de retrait et photo
+   Remise : codes, photo
    ------------------------------------------------------------------------ */
-.saisie-code {
-  height: 64px;
-  font-family: var(--police-titre);
-  font-size: 28px;
-  font-weight: 600;
-  letter-spacing: 10px;
-  text-align: center;
-}
-
-.saisie-code::placeholder {
-  letter-spacing: 10px;
-  color: var(--gris-rond);
-}
-
-.prise-photo {
+.code-colis {
   display: flex;
   flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+}
+
+.code-colis + .code-colis {
+  border-top: 1px solid var(--bordure-legere);
+}
+
+.sans-code {
+  display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 14px;
   width: 100%;
-  padding: 28px 20px;
+  padding: 16px 14px;
   border: 1.5px dashed var(--pointilles);
   border-radius: var(--rayon-carte);
-  background: var(--surface-selection);
-  text-align: center;
+  background: transparent;
+  color: inherit;
+  text-align: left;
 }
 
-.prise-photo:hover {
-  border-color: var(--texte-discret);
-}
-
-.prise-photo--erreur {
-  border-color: var(--erreur);
-}
-
-.apercu-photo {
-  position: relative;
-  border-radius: var(--rayon-carte);
-  overflow: hidden;
+.sans-code__icone {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
   background: var(--surface);
 }
 
-.apercu-photo img {
+.apercu-remise img {
   display: block;
   width: 100%;
-  max-height: 360px;
+  max-height: 320px;
   object-fit: cover;
+  border-radius: var(--rayon-carte);
 }
 
-.apercu-photo__reprendre {
+/* Encaissement : carte noire du montant. */
+.montant-a-encaisser {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 20px 20px 18px;
+  overflow: hidden;
+  border-radius: 26px;
+  background: var(--encre);
+  color: var(--blanc);
+}
+
+.montant-a-encaisser::after {
+  content: '';
   position: absolute;
-  right: 12px;
-  bottom: 12px;
-  display: inline-flex;
+  top: -40px;
+  right: -40px;
+  width: 140px;
+  height: 140px;
+  border: 22px solid #262626;
+  border-radius: 50%;
+}
+
+.montant-a-encaisser__libelle {
+  font-size: 14px;
+  color: #c6c6cb;
+}
+
+.montant-a-encaisser__montant {
+  font-family: var(--police-titre);
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: -0.6px;
+}
+
+.montant-a-encaisser__detail {
+  font-size: 14px;
+  color: #c6c6cb;
+}
+
+/* ------------------------------------------------------------------------
+   Fin de la livraison
+   ------------------------------------------------------------------------ */
+.fin-livraison {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  background: var(--blanc);
-  box-shadow: var(--ombre-flottante);
+  padding-top: 32px;
+  text-align: center;
+}
+
+.fin-livraison__visuel {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: var(--surface);
+}
+
+.fin-livraison__visuel .illustration {
+  width: 84px !important;
+}
+
+.fin-livraison__rond {
+  position: absolute;
+  right: -4px;
+  bottom: 0;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 4px solid var(--blanc);
+  border-radius: 50%;
+  background: var(--succes);
+  color: var(--blanc);
+}
+
+.fin-livraison__rond--echec {
+  background: var(--erreur);
+}
+
+.fin-livraison__titre {
+  margin-top: 22px;
+  font-size: 26px;
+}
+
+.fin-livraison__texte {
+  max-width: 320px;
+  margin-top: 8px;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--texte-secondaire);
+}
+
+.fin-livraison__montant {
+  font-family: var(--police-titre);
+  font-size: 18px;
+  font-weight: 600;
+  white-space: nowrap;
 }

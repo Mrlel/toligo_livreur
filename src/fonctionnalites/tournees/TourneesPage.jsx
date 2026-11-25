@@ -1,21 +1,22 @@
 import { useNavigate } from 'react-router-dom';
-import { Boxes, RefreshCw, Truck, Warehouse } from 'lucide-react';
+import { RefreshCw, Truck } from 'lucide-react';
 
-import { BoutonRond, Carte, Cascade, Page, Pastille, TitreEcran, VueDonnees, VueVide } from '../../composants';
+import { BoutonRond, Cascade, Illustration, Page, Pastille, TitreEcran, VueDonnees, VueVide, cliquable } from '../../composants';
 import { Routes } from '../../commun/routes';
-import { heure, majuscule, moment } from '../../utils/formatage';
+import { estAujourdhui, jourMois, plage } from '../../utils/formatage';
 import { useActualisation, useDonnees } from '../../utils/useDonnees';
+import { nomVehicule } from '../livraisons/api';
 import { infosStatutTournee, listerTournees } from './api';
 import './tournees.css';
 
-/** Tournées de ramassage prévues ou en cours du chauffeur. */
+/** Onglet « Ramassage » : tournées prévues ou en cours (chauffeur ou aide). */
 export default function TourneesPage() {
   const tournees = useDonnees(listerTournees, []);
   useActualisation(tournees.recharger);
 
   return (
-    <Page titre="Tournées" largeur="large">
-      <TitreEcran action={<BoutonRond icone={RefreshCw} libelle="Actualiser" onClick={tournees.recharger} />}>Tournées</TitreEcran>
+    <Page titre="Ramassage" largeur="moyenne">
+      <TitreEcran action={<BoutonRond icone={RefreshCw} libelle="Actualiser" onClick={tournees.recharger} />}>Ramassage</TitreEcran>
 
       <VueDonnees etat={tournees} messageChargement="Chargement de vos tournées…">
         {(liste) =>
@@ -23,10 +24,10 @@ export default function TourneesPage() {
             <VueVide
               icone={Truck}
               titre="Aucune tournée prévue"
-              message="Les tournées de ramassage sont planifiées par l'équipe Tôligo. Elles apparaîtront ici."
+              message="Le gestionnaire de votre station planifie les tournées de ramassage. Elles apparaîtront ici."
             />
           ) : (
-            <Cascade className="grille grille--2">
+            <Cascade className="pile" style={{ gap: 10 }}>
               {liste.map((tournee) => (
                 <CarteTournee key={tournee.id} tournee={tournee} />
               ))}
@@ -38,60 +39,44 @@ export default function TourneesPage() {
   );
 }
 
-/** Carte d'une tournée : date, station d'arrivée, camion, sites. Utilisée aussi par l'accueil. */
+/** « 3 entrepôts → Station Cocody ». */
+export function trajetTournee(tournee) {
+  const nb = tournee.sites?.length ?? tournee.entrepots?.length ?? 0;
+  const sites = nb === 0 ? 'Entrepôts de la station' : `${nb} entrepôt${nb > 1 ? 's' : ''}`;
+  return `${sites} → ${tournee.station?.nom ?? 'station'}`;
+}
+
+/** Carte d'une tournée (maquette LV-Accueil) : camion, trajet, horaires, véhicule. Utilisée aussi par l'accueil. */
 export function CarteTournee({ tournee }) {
   const naviguer = useNavigate();
   const statut = infosStatutTournee(tournee.statut);
-  const quand = tournee.statut === 'en_cours' ? tournee.demarreeLe : tournee.planifieeLe;
+  const jour = tournee.planifieeLe && !estAujourdhui(tournee.planifieeLe) ? `${jourMois(tournee.planifieeLe)} · ` : '';
+  const quand = `${jour}${plage(tournee.planifieeLe, tournee.finPrevueLe)}`;
 
   return (
-    <Carte onClick={() => naviguer(Routes.tournee(tournee.id))}>
-      <div className="carte-tournee__haut">
-        <span className={`carte-tournee__icone${tournee.statut === 'en_cours' ? ' carte-tournee__icone--active' : ''}`}>
-          <Truck size={21} aria-hidden="true" />
-        </span>
-        <div className="extensible">
-          <p className="carte-tournee__titre une-ligne">
-            {!quand ? 'Date à préciser' : tournee.statut === 'en_cours' ? `Démarrée à ${heure(quand)}` : majuscule(moment(quand))}
-          </p>
-          <p className="carte-tournee__detail une-ligne">Arrivée : {tournee.station?.nom ?? 'station'}</p>
-        </div>
-        <div className="pile" style={{ gap: 4, alignItems: 'flex-end' }}>
-          <Pastille ton={statut.ton} petite>
-            {statut.libelle}
-          </Pastille>
-          {tournee.monRole === 'aide' && (
-            <Pastille ton="neutre" petite>
-              Aide
+    <div className="carte-jour" {...cliquable(() => naviguer(Routes.tournee(tournee.id)))}>
+      <span className="tuile">
+        <Illustration nom="camion" taille={64} carre={false} />
+      </span>
+      <span className="carte-jour__texte">
+        <span className="carte-jour__haut">
+          <span className="carte-jour__titre une-ligne">Ramassage</span>
+          <span className="rangee" style={{ gap: 4 }}>
+            {tournee.monRole === 'aide' && (
+              <Pastille ton="sombre" petite>
+                Aide
+              </Pastille>
+            )}
+            <Pastille ton={statut.ton} petite>
+              {statut.libelle}
             </Pastille>
-          )}
-        </div>
-      </div>
-
-      <div className="carte-tournee__bas">
-        {tournee.vehicule && (
-          <span className="carte-tournee__info">
-            <Truck size={15} aria-hidden="true" />
-            {tournee.vehicule.immatriculation}
           </span>
-        )}
-        {tournee.entrepots && (
-          <span className="carte-tournee__info une-ligne">
-            <Warehouse size={15} aria-hidden="true" />
-            {tournee.entrepots.length === 0
-              ? 'Tous les sites'
-              : tournee.entrepots.length === 1
-                ? tournee.entrepots[0].nom
-                : `${tournee.entrepots.length} sites`}
-          </span>
-        )}
-        {tournee.statut === 'en_cours' && tournee.nbBox > 0 && (
-          <span className="carte-tournee__info">
-            <Boxes size={15} aria-hidden="true" />
-            {tournee.nbBox} box
-          </span>
-        )}
-      </div>
-    </Carte>
+        </span>
+        <span className="carte-jour__ligne une-ligne">{trajetTournee(tournee)}</span>
+        <span className="carte-jour__ligne carte-jour__ligne--forte une-ligne">
+          {[quand, nomVehicule(tournee.vehicule)].filter(Boolean).join(' · ')}
+        </span>
+      </span>
+    </div>
   );
 }

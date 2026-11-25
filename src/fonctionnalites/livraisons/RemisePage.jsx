@@ -1,37 +1,29 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { Banknote, Camera, KeyRound, RotateCcw, Smartphone } from 'lucide-react';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Banknote, Camera, Check, RotateCcw, Smartphone } from 'lucide-react';
 
-import {
-  Bouton,
-  Champ,
-  EncadreInfo,
-  EnTete,
-  OngletsSegmentes,
-  Option,
-  Page,
-  PiedDAction,
-  VueDonnees,
-  VueVide,
-  useConfirmation,
-  useMessages,
-} from '../../composants';
+import { Bouton, Cascade, EnTete, Illustration, Option, Page, Pastille, PiedDAction, VueDonnees, useConfirmation, useMessages } from '../../composants';
 import { usePosition } from '../../commun/Position';
 import { Routes } from '../../commun/routes';
 import { useSession } from '../../session/Session';
 import { prenom, prix } from '../../utils/formatage';
 import { preparerPhoto } from '../../utils/photo';
 import { useDonnees } from '../../utils/useDonnees';
-import { detailMission, envoyerLienDePaiement, nombreDeColis, remettre } from './api';
+import { detailMission, envoyerLienDePaiement, illustrationColis, listerMissions, remettre, verifierCode } from './api';
+import { BlocEspeces } from './LivraisonsPage';
+import { EtapesLivraison } from './LivraisonPage';
 import './livraisons.css';
 
+/** Longueur d'un code de retrait (un SMS par colis). */
+const LONGUEUR_CODE = 6;
+
 /**
- * Remise des colis au destinataire (BF-LIV-09) : la preuve est le code de
- * retrait que le destinataire a reçu par SMS, ou à défaut une photo de la
- * remise. En paiement à la livraison, le livreur indique comment le
- * destinataire a payé (lien Mobile Money ou espèces).
+ * 4. Remettre les colis (maquettes LV-Liv-Remise et LV-Liv-Encaissement).
  *
- * La position du livreur est jointe à la remise quand elle est connue.
+ * Preuve : le code de retrait de chaque colis, vérifié dès qu'il est saisi
+ * (badge « Code valide »), ou une photo de la remise pour tous les colis.
+ * En paiement à la livraison, l'écran suivant encaisse (espèces ou Mobile
+ * Money) puis valide la remise. La position du livreur est jointe.
  */
 export default function RemisePage() {
   const { id } = useParams();
@@ -39,50 +31,59 @@ export default function RemisePage() {
 
   return (
     <VueDonnees etat={mission} messageChargement="Chargement de la livraison…">
-      {(m) => <FormulaireRemise mission={m} />}
+      {(m) => (m.statut === 'en_route_livraison' ? <Remise mission={m} /> : <Navigate to={Routes.livraison(m.id)} replace />)}
     </VueDonnees>
   );
 }
 
-function FormulaireRemise({ mission }) {
+function Remise({ mission }) {
   const naviguer = useNavigate();
   const confirmer = useConfirmation();
   const { afficherMessage, afficherErreur } = useMessages();
   const { rechargerProfil } = useSession();
   const { position } = usePosition();
 
-  const [preuve, setPreuve] = useState('code'); // 'code' | 'photo'
-  const [codes, setCodes] = useState({}); // { [codeSuivi]: '482719' }, un code par colis
+  const [etape, setEtape] = useState('codes'); // 'codes' | 'paiement'
+  const [codes, setCodes] = useState({}); // { [codeSuivi]: '571304' }
+  const [validite, setValidite] = useState({}); // { [codeSuivi]: 'verification' | 'valide' | 'faux' }
   const [photo, setPhoto] = useState(null);
   const [apercu, setApercu] = useState(null);
-  const [paiement, setPaiement] = useState(null); // 'lien' | 'especes'
-  const [erreurs, setErreurs] = useState({});
+  const [paiement, setPaiement] = useState('especes'); // 'especes' | 'mobile_money'
   const [enCours, setEnCours] = useState(false);
-  const [lienEnCours, setLienEnCours] = useState(false);
   const champPhoto = useRef(null);
 
-  // L'aperçu de la photo est libéré quand il est remplacé ou à la sortie.
+  // Espèces déjà détenues et plafond, pour la jauge de l'encaissement.
+  const especes = useDonnees(listerMissions, []);
+
   useEffect(() => () => apercu && URL.revokeObjectURL(apercu), [apercu]);
 
   const nom = prenom(mission.destinataire.nom) || 'le destinataire';
   const aEncaisser = mission.montantAEncaisser > 0;
-  // Le destinataire a reçu un SMS par colis, chacun avec son propre code.
-  const plusieursColis = mission.colis.length > 1;
+  const preuveCode = mission.colis.every((colis) => validite[colis.codeSuivi] === 'valide');
+  const preuvePrete = preuveCode || Boolean(photo);
 
-  if (mission.statut !== 'en_route_livraison') {
-    return (
-      <Page titre="Remise" entete={<EnTete titre="Remise des colis" repli={Routes.livraison(mission.id)} />}>
-        <VueVide
-          titre="Remise impossible pour le moment"
-          message="La remise se fait une fois parti en livraison, l'adresse confirmée avec le destinataire."
-          action={
-            <Bouton variante="secondaire" compact onClick={() => naviguer(Routes.livraison(mission.id), { replace: true })}>
-              Retour à la livraison
-            </Bouton>
-          }
-        />
-      </Page>
-    );
+  // Vérification une fois la saisie arrêtée (0,6 s) : la route n'accepte que
+  // 10 essais par minute, un code retapé chiffre par chiffre n'en use qu'un.
+  const attentes = useRef({});
+  useEffect(() => () => Object.values(attentes.current).forEach(clearTimeout), []);
+
+  function saisirCode(codeSuivi, valeur) {
+    setCodes((anciens) => ({ ...anciens, [codeSuivi]: valeur }));
+    clearTimeout(attentes.current[codeSuivi]);
+    if (valeur.length < LONGUEUR_CODE) {
+      setValidite((anciens) => ({ ...anciens, [codeSuivi]: undefined }));
+      return;
+    }
+    setValidite((anciens) => ({ ...anciens, [codeSuivi]: 'verification' }));
+    attentes.current[codeSuivi] = setTimeout(async () => {
+      try {
+        const bon = await verifierCode(mission.id, codeSuivi, valeur);
+        setValidite((anciens) => ({ ...anciens, [codeSuivi]: bon ? 'valide' : 'faux' }));
+      } catch (erreur) {
+        setValidite((anciens) => ({ ...anciens, [codeSuivi]: undefined }));
+        afficherErreur(erreur);
+      }
+    }, 600);
   }
 
   async function choisirPhoto(evenement) {
@@ -93,37 +94,13 @@ function FormulaireRemise({ mission }) {
       const prete = await preparerPhoto(fichier);
       setPhoto(prete);
       setApercu(URL.createObjectURL(prete));
-      setErreurs((ancien) => ({ ...ancien, photo: null }));
     } catch (erreur) {
       afficherErreur(erreur);
-    }
-  }
-
-  async function renvoyerLien() {
-    setLienEnCours(true);
-    try {
-      await envoyerLienDePaiement(mission.id);
-      afficherMessage('Lien de paiement envoyé au destinataire par SMS.');
-    } catch (erreur) {
-      afficherErreur(erreur);
-    } finally {
-      setLienEnCours(false);
     }
   }
 
   async function valider() {
-    const sansCode = preuve === 'code' ? mission.colis.filter((colis) => !/^\d{4,}$/.test(codes[colis.codeSuivi] ?? '')) : [];
-    const nouvellesErreurs = {
-      paiement: aEncaisser && !paiement ? 'Indiquez comment le destinataire a payé.' : null,
-      codes: Object.fromEntries(
-        sansCode.map((colis) => [colis.codeSuivi, plusieursColis ? 'Saisissez le code de ce colis (6 chiffres).' : 'Saisissez le code de retrait (6 chiffres).']),
-      ),
-      photo: preuve === 'photo' && !photo ? 'Prenez une photo de la remise.' : null,
-    };
-    setErreurs(nouvellesErreurs);
-    if (nouvellesErreurs.paiement || sansCode.length > 0 || nouvellesErreurs.photo) return;
-
-    if (paiement === 'especes') {
+    if (aEncaisser && paiement === 'especes') {
       const ok = await confirmer({
         titre: `${prix(mission.montantAEncaisser)} reçus ?`,
         texte: `Confirmez que ${nom} vous a payé ${prix(mission.montantAEncaisser)} en espèces. Vous les reverserez à votre station.`,
@@ -135,157 +112,243 @@ function FormulaireRemise({ mission }) {
     setEnCours(true);
     try {
       await remettre(mission.id, {
-        codes: preuve === 'code' ? codes : null,
-        photo: preuve === 'photo' ? photo : null,
-        modePaiement: paiement === 'especes' ? 'especes' : null,
+        codes: photo ? null : codes,
+        photo,
+        modePaiement: aEncaisser && paiement === 'especes' ? 'especes' : null,
         position,
       });
-      afficherMessage('Livraison enregistrée. Merci !');
       rechargerProfil();
-      naviguer(Routes.livraison(mission.id), { replace: true });
+      naviguer(Routes.finLivraison(mission.id), { replace: true, state: { preuve: photo ? 'photo' : 'code' } });
     } catch (erreur) {
+      afficherErreur(erreur);
       setEnCours(false);
+    }
+  }
+
+  async function renvoyerLien() {
+    try {
+      await envoyerLienDePaiement(mission.id);
+      afficherMessage('Lien de paiement renvoyé au destinataire par SMS.');
+    } catch (erreur) {
       afficherErreur(erreur);
     }
   }
 
+  // -------------------------------------------------------------------------
+  // Encaissement
+  // -------------------------------------------------------------------------
+  if (etape === 'paiement') {
+    const detenues = especes.donnees?.especesDetenues ?? 0;
+    return (
+      <Page
+        titre="Encaissement"
+        entete={<EnTete titre="Encaissement" sousTitre="Paiement à la livraison" gris onRetour={() => setEtape('codes')} />}
+        pied={
+          <PiedDAction arrondi>
+            <Bouton variante="accent" icone={Check} enCours={enCours} onClick={valider}>
+              Valider la remise
+            </Bouton>
+            <button type="button" className="lien-rouge" onClick={() => naviguer(Routes.echec(mission.id), { state: { motif: 'refus_paiement' } })}>
+              Le destinataire refuse de payer
+            </button>
+          </PiedDAction>
+        }
+      >
+        <EtapesLivraison courante={4} />
+        <div className="pile" style={{ gap: 14 }}>
+          <div className="montant-a-encaisser">
+            <span className="montant-a-encaisser__libelle">À encaisser auprès de {nom}</span>
+            <span className="montant-a-encaisser__montant">{prix(mission.montantAEncaisser)}</span>
+            <span className="montant-a-encaisser__detail">{mission.colis.length} colis · livraison à domicile</span>
+          </div>
+
+          <section>
+            <div className="titre-bloc">
+              <span className="etiquette-section">Mode de paiement</span>
+            </div>
+            <div className="pile" style={{ gap: 10 }}>
+              <Option choisie={paiement === 'especes'} onClick={() => setPaiement('especes')}>
+                <span className={`icone-option${paiement === 'especes' ? ' icone-option--choisie' : ''}`}>
+                  <Banknote size={22} aria-hidden="true" />
+                </span>
+                <span className="extensible">
+                  <span className="option__titre">Espèces</span>
+                  <span className="option__texte">Vous recevez {prix(mission.montantAEncaisser)} en main propre</span>
+                </span>
+              </Option>
+              <Option choisie={paiement === 'mobile_money'} onClick={() => setPaiement('mobile_money')}>
+                <span className={`icone-option${paiement === 'mobile_money' ? ' icone-option--choisie' : ''}`}>
+                  <Smartphone size={22} aria-hidden="true" />
+                </span>
+                <span className="extensible">
+                  <span className="option__titre">Mobile Money</span>
+                  <span className="option__texte">Le destinataire paie par le lien reçu par SMS</span>
+                </span>
+              </Option>
+              {paiement === 'mobile_money' && (
+                <button type="button" className="petit-bouton rangee" style={{ gap: 8, alignSelf: 'flex-start', marginLeft: 70 }} onClick={renvoyerLien}>
+                  <RotateCcw size={16} aria-hidden="true" /> Renvoyer le lien
+                </button>
+              )}
+            </div>
+          </section>
+
+          {paiement === 'especes' && (
+            <BlocEspeces montant={detenues + mission.montantAEncaisser} plafond={especes.donnees?.plafondEspeces} note="À reverser ensuite à votre station." />
+          )}
+        </div>
+      </Page>
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Codes de retrait (ou photo)
+  // -------------------------------------------------------------------------
   return (
     <Page
-      titre="Remise"
-      entete={<EnTete titre="Remise des colis" sousTitre={`${nombreDeColis(mission)} pour ${mission.destinataire.nom}`} repli={Routes.livraison(mission.id)} />}
+      titre="Remettre les colis"
+      entete={
+        <EnTete
+          titre="Remettre les colis"
+          sousTitre={`${mission.destinataire.nom} · ${mission.colis.length} colis`}
+          gris
+          repli={Routes.livraison(mission.id)}
+        />
+      }
       pied={
         <PiedDAction arrondi>
-          <Bouton variante="accent" enCours={enCours} onClick={valider}>
-            Valider la remise
-          </Bouton>
+          {aEncaisser ? (
+            <Bouton disabled={!preuvePrete} onClick={() => setEtape('paiement')}>
+              Continuer vers le paiement
+            </Bouton>
+          ) : (
+            <Bouton variante="accent" icone={Check} enCours={enCours} disabled={!preuvePrete} onClick={valider}>
+              Valider la remise
+            </Bouton>
+          )}
+          <button type="button" className="lien-rouge" onClick={() => naviguer(Routes.echec(mission.id))}>
+            Livraison impossible
+          </button>
         </PiedDAction>
       }
     >
-      <div className="pile" style={{ gap: 22 }}>
-        {aEncaisser && (
-          <section>
-            <p className="etiquette-section">Paiement · {prix(mission.montantAEncaisser)}</p>
-            <div className="pile" style={{ gap: 8, marginTop: 10 }}>
-              <Option
-                choisie={paiement === 'lien'}
-                onClick={() => {
-                  setPaiement('lien');
-                  setErreurs((ancien) => ({ ...ancien, paiement: null }));
-                }}
-              >
+      <EtapesLivraison courante={4} />
+
+      {!photo && (
+        <>
+          <div className="titre-bloc">
+            <span className="etiquette-section">Codes de retrait</span>
+            <span className="titre-bloc__precision">un code par colis</span>
+          </div>
+          <Cascade className="liste-carte">
+            {mission.colis.map((colis) => (
+              <div key={colis.codeSuivi} className="code-colis">
                 <div className="rangee" style={{ gap: 12 }}>
-                  <span className={`rond-icone${paiement === 'lien' ? ' rond-icone--noir' : ''}`}>
-                    <Smartphone size={18} aria-hidden="true" />
+                  <span className="vignette-colis" style={{ width: 42, height: 42, borderRadius: 12 }}>
+                    <Illustration nom={illustrationColis(colis.format)} taille={30} carre={false} />
                   </span>
-                  <div className="extensible">
-                    <p className="demi-gras">Payé par le lien (Mobile Money)</p>
-                    <p className="texte-secondaire" style={{ fontSize: 13 }}>
-                      Le paiement doit être validé avant la remise.
-                    </p>
-                  </div>
-                </div>
-              </Option>
-              <Option
-                choisie={paiement === 'especes'}
-                onClick={() => {
-                  setPaiement('especes');
-                  setErreurs((ancien) => ({ ...ancien, paiement: null }));
-                }}
-              >
-                <div className="rangee" style={{ gap: 12 }}>
-                  <span className={`rond-icone${paiement === 'especes' ? ' rond-icone--noir' : ''}`}>
-                    <Banknote size={18} aria-hidden="true" />
+                  <span className="extensible">
+                    <span className="gras" style={{ display: 'block', letterSpacing: 0.2 }}>
+                      {colis.codeSuivi}
+                    </span>
+                    <span className="texte-secondaire" style={{ display: 'block', fontSize: 13.5 }}>
+                      {colis.format ?? 'Colis'}
+                    </span>
                   </span>
-                  <div className="extensible">
-                    <p className="demi-gras">Payé en espèces</p>
-                    <p className="texte-secondaire" style={{ fontSize: 13 }}>
-                      Vous encaissez {prix(mission.montantAEncaisser)}.
-                    </p>
-                  </div>
+                  <BadgeCode etat={validite[colis.codeSuivi]} />
                 </div>
-              </Option>
-            </div>
-            {erreurs.paiement && <p className="champ__erreur">{erreurs.paiement}</p>}
-            {paiement === 'lien' && (
-              <div style={{ marginTop: 10 }}>
-                <Bouton variante="texte" compact enCours={lienEnCours} onClick={renvoyerLien}>
-                  Le destinataire n'a pas reçu le lien ? Le renvoyer
-                </Bouton>
+                <CasesCode valeur={codes[colis.codeSuivi] ?? ''} faux={validite[colis.codeSuivi] === 'faux'} onChange={(valeur) => saisirCode(colis.codeSuivi, valeur)} />
               </div>
-            )}
-          </section>
-        )}
-
-        <section>
-          <p className="etiquette-section" style={{ marginBottom: 10 }}>
-            Preuve de remise
+            ))}
+          </Cascade>
+          <p className="texte-secondaire" style={{ fontSize: 13.5, margin: '10px 4px 14px' }}>
+            Le destinataire a reçu un code par SMS pour chaque colis, à leur arrivée en station.
           </p>
-          <OngletsSegmentes
-            onglets={[
-              { cle: 'code', libelle: 'Code de retrait' },
-              { cle: 'photo', libelle: 'Photo' },
-            ]}
-            courant={preuve}
-            onChoisir={setPreuve}
-          />
+        </>
+      )}
 
-          {preuve === 'code' ? (
-            <div className="pile" style={{ gap: 14, marginTop: 16 }}>
-              {plusieursColis && (
-                <p className="texte-secondaire" style={{ fontSize: 13 }}>
-                  {nom} a reçu un SMS par colis, chacun avec son code à 6 chiffres. Le numéro du colis figure dans le SMS.
-                </p>
-              )}
-              {mission.colis.map((colis) => (
-                <Champ
-                  key={colis.codeSuivi}
-                  libelle={plusieursColis ? `Colis ${colis.codeSuivi}` : `Code reçu par ${nom}`}
-                  aide={plusieursColis ? null : 'Le destinataire a reçu ce code à 6 chiffres par SMS. Demandez-le au moment de la remise.'}
-                  erreur={erreurs.codes?.[colis.codeSuivi]}
-                  classeSaisie="saisie-code"
-                  inputMode="numeric"
-                  autoComplete={plusieursColis ? 'off' : 'one-time-code'}
-                  placeholder="000000"
-                  maxLength={8}
-                  value={codes[colis.codeSuivi] ?? ''}
-                  onChange={(e) => {
-                    const saisi = e.target.value.replace(/\D/g, '');
-                    setCodes((ancien) => ({ ...ancien, [colis.codeSuivi]: saisi }));
-                    setErreurs((ancien) => ({ ...ancien, codes: { ...ancien.codes, [colis.codeSuivi]: null } }));
-                  }}
-                />
-              ))}
-            </div>
-          ) : (
-            <div style={{ marginTop: 16 }}>
-              <input ref={champPhoto} type="file" accept="image/*" capture="environment" hidden onChange={choisirPhoto} />
-              {apercu ? (
-                <div className="apercu-photo">
-                  <img src={apercu} alt="Photo de la remise" />
-                  <button type="button" className="petit-bouton apercu-photo__reprendre" onClick={() => champPhoto.current?.click()}>
-                    <RotateCcw size={15} aria-hidden="true" /> Reprendre
-                  </button>
-                </div>
-              ) : (
-                <button type="button" className={`prise-photo${erreurs.photo ? ' prise-photo--erreur' : ''}`} onClick={() => champPhoto.current?.click()}>
-                  <span className="rond-icone rond-icone--noir">
-                    <Camera size={20} aria-hidden="true" />
-                  </span>
-                  <span className="demi-gras">Prendre la photo</span>
-                  <span className="texte-secondaire" style={{ fontSize: 13 }}>
-                    Les colis remis, avec la porte ou le destinataire.
-                  </span>
-                </button>
-              )}
-              {erreurs.photo && <p className="champ__erreur">{erreurs.photo}</p>}
-            </div>
-          )}
-        </section>
-
-        <EncadreInfo icone={KeyRound}>
-          Sans code, une photo suffit : par exemple quand le destinataire a perdu son SMS.
-        </EncadreInfo>
-      </div>
+      {photo ? (
+        <div className="apercu-remise">
+          <img src={apercu} alt="Photo de la remise" />
+          <div className="rangee" style={{ gap: 10, marginTop: 10 }}>
+            <Pastille ton="succes">Photo de la remise prise</Pastille>
+            <button type="button" className="lien" onClick={() => champPhoto.current?.click()}>
+              Reprendre
+            </button>
+            <button type="button" className="lien" onClick={() => setPhoto(null)}>
+              Utiliser les codes
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" className="sans-code" onClick={() => champPhoto.current?.click()}>
+          <span className="sans-code__icone" aria-hidden="true">
+            <Camera size={22} />
+          </span>
+          <span>
+            <span className="gras" style={{ display: 'block', fontSize: 15.5 }}>
+              Pas de code ?
+            </span>
+            <span className="texte-secondaire" style={{ display: 'block', fontSize: 14 }}>
+              Prenez une photo de la remise, valable pour tous les colis
+            </span>
+          </span>
+        </button>
+      )}
+      <input ref={champPhoto} type="file" accept="image/*" capture="environment" hidden onChange={choisirPhoto} />
     </Page>
+  );
+}
+
+/** « Code valide » (vert), « Code incorrect » (rouge), vérification en cours. */
+function BadgeCode({ etat }) {
+  if (etat === 'valide') return <Pastille ton="succes">Code valide</Pastille>;
+  if (etat === 'faux') return <Pastille ton="erreur">Code incorrect</Pastille>;
+  if (etat === 'verification') return <Pastille>Vérification…</Pastille>;
+  return null;
+}
+
+/** Six cases d'un code de retrait : on passe seul à la case suivante. */
+function CasesCode({ valeur, faux, onChange }) {
+  const cases = useRef([]);
+
+  function changer(index, texte) {
+    let chiffres = texte.replace(/\D/g, '');
+    // Case déjà remplie : seul le chiffre tapé compte.
+    if (chiffres.length === 2 && valeur[index]) chiffres = chiffres.replace(valeur[index], '') || valeur[index];
+    if (chiffres.length > 1) {
+      // Code collé d'un coup.
+      const complet = (valeur.slice(0, index) + chiffres).slice(0, LONGUEUR_CODE);
+      onChange(complet);
+      cases.current[Math.min(complet.length, LONGUEUR_CODE - 1)]?.focus();
+      return;
+    }
+    const tableau = valeur.padEnd(LONGUEUR_CODE, ' ').split('');
+    tableau[index] = chiffres || ' ';
+    const nouveau = tableau.join('').replace(/\s+$/, '').replace(/\s/g, '');
+    onChange(nouveau);
+    if (chiffres && index < LONGUEUR_CODE - 1) cases.current[index + 1]?.focus();
+  }
+
+  return (
+    <div className={`cases-code${faux ? ' cases-code--fausse' : ''}`}>
+      {Array.from({ length: LONGUEUR_CODE }, (_, i) => (
+        <input
+          key={i}
+          ref={(element) => {
+            cases.current[i] = element;
+          }}
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          aria-label={`Chiffre ${i + 1}`}
+          value={valeur[i] ?? ''}
+          maxLength={LONGUEUR_CODE}
+          onChange={(e) => changer(i, e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Backspace' && !valeur[i] && i > 0) cases.current[i - 1]?.focus();
+          }}
+        />
+      ))}
+    </div>
   );
 }

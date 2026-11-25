@@ -1,5 +1,5 @@
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { House, Package, Truck, User } from 'lucide-react';
+import { ChartNoAxesColumn, House, Package, Truck } from 'lucide-react';
 
 import { AvatarInitiales } from '../composants';
 import { infosStatut } from '../fonctionnalites/profil/api';
@@ -8,19 +8,21 @@ import EcransAnimes from './EcransAnimes';
 import { Routes, ROUTES_ONGLETS } from './routes';
 
 /**
- * Cadre des écrans du livreur connecté, comme dans l'application client.
+ * Cadre des écrans du livreur connecté (maquettes LV-*).
  *
- * - Sur ordinateur : barre de navigation à gauche, toujours visible.
- * - Sur téléphone : onglets en bas, sur les quatre écrans principaux.
+ * - Sur téléphone : onglets en bas (Accueil, Ramassage, Mission, Activité),
+ *   l'onglet choisi en noir avec un point orange ; le profil s'ouvre par
+ *   l'avatar de l'accueil.
+ * - Sur ordinateur : barre de navigation à gauche.
  *
- * L'onglet « Livraisons » n'apparaît qu'aux livreurs à domicile, l'onglet
- * « Tournées » qu'aux chauffeurs de ramassage (un livreur peut être les deux).
+ * « Ramassage » n'apparaît qu'aux chauffeurs de ramassage, « Mission »
+ * qu'aux livreurs à domicile (un livreur peut être les deux).
  */
 const ONGLETS = [
   { vers: Routes.accueil, libelle: 'Accueil', icone: House },
-  { vers: Routes.livraisons, libelle: 'Livraisons', icone: Package, role: 'estLivreurDomicile' },
-  { vers: Routes.tournees, libelle: 'Tournées', icone: Truck, role: 'estChauffeur' },
-  { vers: Routes.profil, libelle: 'Profil', icone: User },
+  { vers: Routes.tournees, libelle: 'Ramassage', icone: Truck, role: 'estChauffeur' },
+  { vers: Routes.livraisons, libelle: 'Mission', icone: Package, role: 'estLivreurDomicile' },
+  { vers: Routes.activite, libelle: 'Activité', icone: ChartNoAxesColumn },
 ];
 
 /** Onglets du livreur ; tous tant que le profil n'est pas chargé. */
@@ -72,7 +74,7 @@ function BarreLaterale() {
 
       <div className="barre-laterale__bas">
         <Link to={Routes.profil} className="barre-laterale__profil">
-          <AvatarInitiales nom={profil?.nomComplet} taille={40} />
+          <AvatarInitiales nom={profil?.nomComplet} taille={40} fond="var(--encre)" couleur="var(--blanc)" />
           <span className="extensible">
             <span className="une-ligne" style={{ display: 'block', fontWeight: 700, fontSize: 14 }}>
               {profil?.nomComplet ?? ' '}
@@ -90,7 +92,7 @@ function BarreLaterale() {
   );
 }
 
-/** Onglets du bas (téléphone). Icônes au trait : l'onglet actif est plus foncé. */
+/** Onglets du bas (téléphone) : actif en noir, avec un point orange dessous. */
 function OngletsBas() {
   const { profil } = useSession();
   return (
@@ -99,8 +101,9 @@ function OngletsBas() {
         <NavLink key={vers} to={vers} className="onglets-bas__onglet">
           {({ isActive }) => (
             <>
-              <Icone size={22} strokeWidth={isActive ? 2.2 : 1.8} />
+              <Icone size={22} strokeWidth={isActive ? 2 : 1.8} />
               {libelle}
+              <span className={`onglets-bas__point${isActive ? ' onglets-bas__point--actif' : ''}`} aria-hidden="true" />
             </>
           )}
         </NavLink>

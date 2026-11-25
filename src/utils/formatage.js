@@ -108,3 +108,14 @@ export function prenom(nom) {
 export function majuscule(texte) {
   return texte ? texte[0].toUpperCase() + texte.slice(1) : texte;
 }
+
+/** « Mardi 25 novembre » (date du jour en tête de l'accueil). */
+export function dateDuJour(valeur = new Date()) {
+  return majuscule(formatJourLong.format(valeur));
+}
+
+/** « 14:00 – 17:00 » ; « 14:00 » sans fin connue. */
+export function plage(debut, fin) {
+  if (!debut) return '';
+  return fin ? `${heure(debut)} – ${heure(fin)}` : heure(debut);
+}

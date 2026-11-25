@@ -63,6 +63,7 @@ function versTournee(json) {
   const vehicule = json.vehicule ? lireObjet(json.vehicule) : null;
   return {
     id: json.id ?? '',
+    reference: json.reference ?? '',
     statut: json.statut ?? 'planifiee',
     planifieeLe: lireDate(json.planifiee_le),
     finPrevueLe: lireDate(json.fin_prevue_le),
@@ -75,6 +76,17 @@ function versTournee(json) {
       ? lireListe(json.entrepots).map((site) => ({ id: site.id ?? '', nom: site.nom ?? '', adresse: site.adresse ?? '' }))
       : null,
     vehicule: vehicule && { type: vehicule.type ?? 'autre', immatriculation: vehicule.immatriculation ?? '', capaciteKg: lireNombre(vehicule.capacite_kg) },
+    // Sites à visiter (choisis ou tous ceux de la station), du plus proche au
+    // plus lointain de la station. null dans la liste : non chargés.
+    sites: Array.isArray(json.sites)
+      ? lireListe(json.sites).map((site) => ({
+          id: site.id ?? '',
+          nom: site.nom ?? '',
+          adresse: site.adresse ?? '',
+          latitude: lireNombre(site.latitude),
+          longitude: lireNombre(site.longitude),
+        }))
+      : null,
     // 'chauffeur' : il pilote la tournée ; 'aide' : il la suit sans agir.
     monRole: json.mon_role === 'aide' ? 'aide' : 'chauffeur',
     chauffeur: json.chauffeur ? versMembre(lireObjet(json.chauffeur)) : null,
@@ -104,7 +116,7 @@ function versTournee(json) {
 function versDetail(json) {
   return {
     tournee: versTournee(lireObjet(json.tournee)),
-    aBord: lireListe(json.a_bord).map((colis) => ({ codeSuivi: colis.code_suivi ?? '', format: colis.format ?? null })),
+    aBord: lireListe(json.a_bord).map((colis) => ({ codeSuivi: colis.code_suivi ?? '', format: colis.format ?? null, entrepot: colis.entrepot ?? null })),
   };
 }
 
@@ -139,9 +151,9 @@ export async function terminerTournee(id) {
 }
 
 const STATUTS_TOURNEE = {
-  planifiee: { libelle: 'Prévue', ton: 'sombre' },
-  en_cours: { libelle: 'En cours', ton: 'vive' },
-  terminee: { libelle: 'Terminée', ton: 'succes' },
+  planifiee: { libelle: 'Planifiée', ton: 'neutre' },
+  en_cours: { libelle: 'En cours', ton: 'accent' },
+  terminee: { libelle: 'Terminée', ton: 'neutre' },
   annulee: { libelle: 'Annulée', ton: 'neutre' },
 };
 

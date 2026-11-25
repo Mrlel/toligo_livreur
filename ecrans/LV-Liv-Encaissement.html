@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tôligo Livreur — Encaissement</title>
+<!-- Maquette Tôligo : LV14 · Encaissement -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&amp;family=DM+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#121212}a:hover{color:#000000}
+button{font:inherit;cursor:pointer}
+input,textarea{font:inherit}
+input::placeholder,textarea::placeholder{color:#76767C}
+</style>
+<style>
+body{margin:0;min-height:100vh;background:#E9E9EC;display:flex;justify-content:center;align-items:flex-start;padding:32px 16px;box-sizing:border-box}
+.ecran{border-radius:44px;overflow:hidden;box-shadow:0 24px 60px rgba(18,18,18,0.18);flex-shrink:0}
+</style>
+</head>
+<body>
+<div class="ecran">
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #FFFFFF; font-family: 'DM Sans', sans-serif; color: #121212; box-sizing: border-box">
+  <div style="padding: 56px 20px 0; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+      <a href="LV-Liv-Remise.html" aria-label="Retour" style="width: 44px; height: 44px; border-radius: 50%; background: #F5F5F6; display: flex; align-items: center; justify-content: center; color: #121212; flex-shrink: 0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"></path></svg></a>
+      <span style="display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0"><span style="font-family: 'Sora', sans-serif; font-weight: 600; font-size: 17px">Encaissement</span><span style="font-size: 12.5px; color: #616168; white-space: nowrap">Paiement à la livraison</span></span>
+      <span style="width: 44px"></span>
+    </div>
+    <div aria-label="Étape 4 sur 4" style="display: flex; gap: 6px"><div style="flex: 1; display: flex; flex-direction: column; gap: 6px"><span style="height: 4px; border-radius: 2px; background: #121212"></span><span style="font-size: 12px; font-weight: 500; color: #121212">1. Prendre</span></div><div style="flex: 1; display: flex; flex-direction: column; gap: 6px"><span style="height: 4px; border-radius: 2px; background: #121212"></span><span style="font-size: 12px; font-weight: 500; color: #121212">2. Confirmer</span></div><div style="flex: 1; display: flex; flex-direction: column; gap: 6px"><span style="height: 4px; border-radius: 2px; background: #121212"></span><span style="font-size: 12px; font-weight: 500; color: #121212">3. Partir</span></div><div style="flex: 1; display: flex; flex-direction: column; gap: 6px"><span style="height: 4px; border-radius: 2px; background: #C94A0A"></span><span style="font-size: 12px; font-weight: 700; color: #121212">4. Remettre</span></div></div>
+    <div style="position: relative; border-radius: 26px; background: #121212; color: #FFFFFF; padding: 18px; overflow: hidden">
+      <svg width="180" height="130" viewBox="0 0 180 130" aria-hidden="true" style="position: absolute; right: -40px; top: -30px"><circle cx="90" cy="65" r="60" fill="none" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="20"></circle></svg>
+      <span style="position: relative; display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 13px; color: #C6C6CB">À encaisser auprès de Didier</span>
+        <span style="font-family: 'Sora', sans-serif; font-weight: 600; font-size: 32px; letter-spacing: -0.5px">3 500 F</span>
+        <span style="font-size: 12.5px; color: #C6C6CB">2 colis · livraison à domicile</span>
+      </span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 12.5px; font-weight: 700; color: #616168; letter-spacing: 0.7px">MODE DE PAIEMENT</span></div>
+      <div role="radio" aria-checked="true" tabindex="0" style="display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-radius: 22px; border: 2px solid #121212; background: #F8F8F9">
+        <div style="display: flex; align-items: center; gap: 12px">
+          <span style="width: 40px; height: 40px; border-radius: 50%; background: #121212; color: #FFFFFF; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5"></rect><circle cx="12" cy="12" r="2.5"></circle></svg></span>
+          <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 15px; font-weight: 600">Espèces</span><span style="font-size: 12.5px; color: #616168">Vous recevez 3 500 F en main propre</span></span>
+          <span aria-hidden="true" style="width: 22px; height: 22px; border-radius: 50%; border: 7px solid #121212; box-sizing: border-box; flex-shrink: 0; background: #FFFFFF"></span>
+        </div>
+        
+      </div>
+      <div role="radio" aria-checked="false" tabindex="0" style="display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-radius: 22px; border: 1px solid #F0F0F2; box-shadow: 0 8px 24px rgba(18,18,18,0.06); background: #FFFFFF">
+        <div style="display: flex; align-items: center; gap: 12px">
+          <span style="width: 40px; height: 40px; border-radius: 50%; background: #F5F5F6; color: #121212; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"></rect><path d="M10.5 18.5h3"></path></svg></span>
+          <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 15px; font-weight: 600">Mobile Money</span><span style="font-size: 12.5px; color: #616168">Le destinataire paie par le lien reçu par SMS</span></span>
+          <span aria-hidden="true" style="width: 22px; height: 22px; border-radius: 50%; border: 2px solid #CBCBD0; box-sizing: border-box; flex-shrink: 0"></span>
+        </div>
+        <button type="button" style="align-self: flex-start; height: 34px; padding: 0 14px; border-radius: 999px; border: 0; background: #F5F5F6; font-size: 13px; font-weight: 600; color: #121212; display: inline-flex; align-items: center; gap: 6px; margin-left: 52px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"></path></svg> Renvoyer le lien</button>
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 20px; background: #F5F5F6">
+      <span style="display: flex; justify-content: space-between; font-size: 13px"><span style="color: #616168">Espèces à reverser ensuite</span><span><b>10 000 F</b> <span style="color: #616168">/ 50 000 F</span></span></span>
+      <span style="height: 6px; border-radius: 3px; background: #E4E4E7; overflow: hidden; display: block"><span style="display: block; width: 20%; height: 6px; background: #121212; border-radius: 3px"></span></span>
+    </div>
+  </div>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 16px 20px 34px; background: #FFFFFF; border-radius: 28px 28px 0 0; box-shadow: 0 -8px 28px rgba(18,18,18,0.07); display: flex; flex-direction: column; gap: 6px">
+    <a href="LV-Liv-Fin.html" style="height: 56px; border-radius: 999px; background: #C94A0A; color: #FFFFFF; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; font-weight: 600; font-size: 16px"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"></path></svg> Valider la remise</a><a href="LV-Liv-Echec.html" style="height: 40px; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; font-size: 14.5px; font-weight: 600; color: #B42318">Le destinataire refuse de payer</a>
+  </div>
+</div>
+</div>
+</body>
+</html>

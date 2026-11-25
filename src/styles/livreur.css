@@ -328,3 +328,416 @@ a.bouton {
   flex: 1;
   font-size: 16px;
 }
+
+/* =========================================================================
+   Éléments des maquettes LV-* (25/11/2026), partagés par plusieurs écrans.
+   ========================================================================= */
+
+/* Titre de bloc : « COLIS À PRENDRE » à gauche, précision orange à droite. */
+.titre-bloc {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 4px 0 10px;
+}
+
+.titre-bloc__precision {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-fonce);
+  white-space: nowrap;
+}
+
+/* Étapes d'une livraison : 1. Prendre · 2. Confirmer · 3. Partir · 4. Remettre. */
+.etapes-livraison {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 18px;
+}
+
+.etapes-livraison__etape {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--texte-discret);
+  white-space: nowrap;
+}
+
+.etapes-livraison__etape::before {
+  content: '';
+  height: 4px;
+  border-radius: 2px;
+  background: #e4e4e7;
+}
+
+.etapes-livraison__etape--faite {
+  color: var(--encre);
+}
+
+.etapes-livraison__etape--faite::before {
+  background: var(--encre);
+}
+
+.etapes-livraison__etape--courante {
+  color: var(--encre);
+  font-weight: 700;
+}
+
+.etapes-livraison__etape--courante::before {
+  background: var(--accent);
+}
+
+/* Tuile d'illustration (colis, camion) des cartes du jour. */
+.tuile {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 74px;
+  height: 74px;
+  border-radius: 20px;
+  background: var(--surface);
+}
+
+.tuile--accent {
+  background: var(--accent-clair);
+}
+
+/* Carte du jour (accueil, listes) : tuile, titre, pastille, deux lignes. */
+.carte-jour {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 12px 14px 12px 12px;
+  border: 1px solid var(--bordure-legere);
+  border-radius: var(--rayon-carte);
+  background: var(--blanc);
+  box-shadow: var(--ombre-carte);
+  color: inherit;
+  text-align: left;
+  text-decoration: none;
+}
+
+.carte-jour[role='button'] {
+  cursor: pointer;
+}
+
+.carte-jour__texte {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.carte-jour__haut {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.carte-jour__titre {
+  font-family: var(--police-titre);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.carte-jour__ligne {
+  font-size: 13px;
+  color: var(--texte-secondaire);
+}
+
+.carte-jour__ligne--forte {
+  color: var(--encre);
+  font-weight: 600;
+}
+
+/* Liste dans une carte blanche, lignes séparées par un trait fin. */
+.liste-carte {
+  overflow: hidden;
+  border: 1px solid var(--bordure-legere);
+  border-radius: var(--rayon-carte);
+  background: var(--blanc);
+  box-shadow: var(--ombre-carte);
+}
+
+.liste-carte__ligne {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 60px;
+  padding: 12px 14px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  text-decoration: none;
+}
+
+.liste-carte__ligne + .liste-carte__ligne {
+  border-top: 1px solid var(--bordure-legere);
+}
+
+.liste-carte__texte {
+  flex: 1;
+  min-width: 0;
+}
+
+.liste-carte__titre {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.liste-carte__detail {
+  margin-top: 1px;
+  font-size: 13px;
+  color: var(--texte-secondaire);
+}
+
+/* Vignette d'un colis (illustration du format). */
+.vignette-colis {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+/* Rond numéroté d'un arrêt : à venir (cerclé), en cours (orange), fait (noir). */
+.rond-arret {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--encre);
+  border-radius: 50%;
+  background: var(--blanc);
+  font-family: var(--police-titre);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.rond-arret--courant {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--blanc);
+}
+
+.rond-arret--fait {
+  background: var(--encre);
+  color: var(--blanc);
+}
+
+/* Station d'arrivée : carré noir « A ». */
+.rond-arret--station {
+  border-radius: 9px;
+  background: var(--encre);
+  color: var(--blanc);
+}
+
+/* Espèces à reverser : bloc gris (ou noir) avec une jauge vers le plafond. */
+.bloc-especes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 0;
+  border-radius: var(--rayon-carte);
+  background: var(--surface);
+  color: var(--encre);
+  text-align: left;
+  text-decoration: none;
+}
+
+.bloc-especes__haut {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.bloc-especes__libelle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.bloc-especes__montant {
+  font-size: 13px;
+  color: var(--texte-secondaire);
+  white-space: nowrap;
+}
+
+.bloc-especes__montant b {
+  font-family: var(--police-titre);
+  font-size: 16px;
+  color: var(--encre);
+}
+
+.jauge {
+  display: block;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #e4e4e7;
+}
+
+.jauge__barre {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--encre);
+}
+
+.bloc-especes--sombre {
+  border-radius: 26px;
+  background: var(--encre);
+  color: var(--blanc);
+}
+
+.bloc-especes--sombre .bloc-especes__montant {
+  color: #c6c6cb;
+}
+
+.bloc-especes--sombre .bloc-especes__montant b {
+  font-size: 22px;
+  color: var(--blanc);
+}
+
+.bloc-especes--sombre .jauge {
+  background: #333336;
+}
+
+.bloc-especes--sombre .jauge__barre {
+  background: var(--accent-vif);
+}
+
+/* Équipe : avatars qui se chevauchent. */
+.avatars-equipe {
+  display: flex;
+  flex: none;
+}
+
+.avatars-equipe .avatar + .avatar {
+  margin-left: -10px;
+  box-shadow: 0 0 0 2px var(--blanc);
+}
+
+/* Code de retrait : six cases. */
+.cases-code {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.cases-code input {
+  width: 100%;
+  height: 46px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 14px;
+  background: var(--surface);
+  font-family: var(--police-titre);
+  font-size: 20px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.cases-code input:focus {
+  outline: none;
+  border-color: var(--encre);
+  background: var(--blanc);
+}
+
+.cases-code--fausse input {
+  border-color: var(--erreur);
+}
+
+/* Bandeau de confirmation vert (« Adresse confirmée par appel à 09:52 »). */
+.bandeau-succes {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--rayon-champ);
+  background: var(--succes-clair);
+  color: var(--succes-fonce);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.bandeau-succes__rond {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--succes);
+  color: var(--blanc);
+}
+
+/* Lien d'action rouge sous le bouton principal (« Signaler un problème »). */
+.lien-rouge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--erreur);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------------
+   Options à icône (paiement, motif d'échec, problème de box)
+   ------------------------------------------------------------------------ */
+.icone-option {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--encre);
+}
+
+.icone-option--choisie {
+  background: var(--encre);
+  color: var(--blanc);
+}
+
+.option__titre {
+  display: block;
+  font-size: 15.5px;
+  font-weight: 700;
+}
+
+.option__texte {
+  display: block;
+  margin-top: 1px;
+  font-size: 13.5px;
+  color: var(--texte-secondaire);
+}
+
+/* Option avec icône : l'icône à gauche du texte. */
+.option__contenu:has(> .icone-option) {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}

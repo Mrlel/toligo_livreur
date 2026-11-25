@@ -38,6 +38,7 @@ function versMission(json) {
     station: versStation(json.station),
     affecteeLe: lireDate(json.affectee_le),
     adresseConfirmeeLe: lireDate(json.adresse_confirmee_le),
+    modeConfirmationAdresse: json.mode_confirmation_adresse ?? null,
     poidsTotalKg: lireNombre(json.poids_total_kg),
     colis: lireListe(json.colis).map((colis) => ({
       codeSuivi: colis.code_suivi ?? '',
@@ -61,7 +62,36 @@ function versMission(json) {
     },
     // Paiement à la livraison pas encore réglé : 0 si rien à encaisser.
     montantAEncaisser: lireNombre(json.montant_a_encaisser) ?? 0,
+    // Véhicule de la station choisi par le gestionnaire pour cette mission.
+    vehicule: json.vehicule ? versVehicule(lireObjet(json.vehicule)) : null,
   };
+}
+
+/** Véhicule (moto, camion...) d'une mission ou d'une tournée. */
+export function versVehicule(json) {
+  return {
+    id: json.id ?? '',
+    type: json.type ?? 'autre',
+    immatriculation: json.immatriculation ?? '',
+    modele: json.modele ?? null,
+    capaciteKg: lireNombre(json.capacite_kg),
+  };
+}
+
+const TYPES_VEHICULE = { moto: 'Moto', velo: 'Vélo', voiture: 'Voiture', camion: 'Camion', autre: 'Véhicule' };
+
+/** « Moto 1187 KF 01 ». */
+export function nomVehicule(vehicule) {
+  if (!vehicule) return '';
+  return `${TYPES_VEHICULE[vehicule.type] ?? 'Véhicule'} ${vehicule.immatriculation}`.trim();
+}
+
+/** Illustration d'un colis selon son format (« Petit », « Moyen », « Grand »). */
+export function illustrationColis(format) {
+  const texte = (format ?? '').toLowerCase();
+  if (texte.includes('petit')) return 'colis-petit';
+  if (texte.includes('grand')) return 'colis-grand';
+  return 'colis-moyen';
 }
 
 /** Missions en cours du livreur et espèces qu'il doit encore reverser. */
@@ -70,6 +100,8 @@ export async function listerMissions() {
   return {
     missions: lireListe(json.missions).map(versMission),
     especesDetenues: lireNombre(json.especes_detenues) ?? 0,
+    // Plafond d'espèces fixé par l'administration ; null s'il n'est pas saisi.
+    plafondEspeces: lireNombre(json.plafond_especes),
   };
 }
 
@@ -115,6 +147,12 @@ export async function remettre(id, { codes, photo, modePaiement, position }) {
   return versMission(lireObjet(await api.post(`/livreur/missions/${id}/remise`, { ...champs, codes_retrait: codes })));
 }
 
+/** Vérifie un code de retrait pendant la saisie : true s'il est bon (10 essais par minute). */
+export async function verifierCode(id, codeSuivi, code) {
+  const json = lireObjet(await api.post(`/livreur/missions/${id}/verification-code`, { code_suivi: codeSuivi, code }));
+  return lireBooleen(json.valide);
+}
+
 /** `motif` : 'destinataire_absent' ou 'adresse_incorrecte'. */
 export async function signalerEchec(id, motif, commentaire) {
   return versMission(lireObjet(await api.post(`/livreur/missions/${id}/echec`, { motif, commentaire: commentaire || null })));
@@ -131,7 +169,7 @@ export function envoyerLienDePaiement(id) {
 
 /** Statuts d'une mission (enum StatutMission, parcours terrestre). */
 const STATUTS_MISSION = {
-  affectee: { libelle: 'À prendre en station', ton: 'sombre' },
+  affectee: { libelle: 'Affectée', ton: 'accent' },
   recuperee: { libelle: 'Adresse à confirmer', ton: 'accent' },
   adresse_confirmee: { libelle: 'Prête à partir', ton: 'accent' },
   en_route_livraison: { libelle: 'En route', ton: 'vive' },

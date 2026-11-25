@@ -1,25 +1,38 @@
 import { useState } from 'react';
-import { LocateFixed, LogOut, Star } from 'lucide-react';
+import { LocateFixed, LogOut, Star, Truck, Warehouse } from 'lucide-react';
 
-import { AvatarInitiales, BlocGris, Bouton, EncadreInfo, LigneInfo, Page, Pastille, TitreEcran, useConfirmation } from '../../composants';
+import { AvatarInitiales, EnTete, Interrupteur, Page, Pastille, useConfirmation } from '../../composants';
 import { texteEtatPosition, usePosition } from '../../commun/Position';
+import { Routes } from '../../commun/routes';
 import { useSession } from '../../session/Session';
 import { afficher as afficherTelephone } from '../../utils/telephone';
-import { infosStatut, seDeconnecter } from './api';
+import { useDonnees } from '../../utils/useDonnees';
+import { listerMissions, nomVehicule } from '../livraisons/api';
+import { listerTournees } from '../tournees/api';
+import { seDeconnecter } from './api';
 import './profil.css';
 
 /**
- * Profil du livreur : identité, rôles, véhicule, partage de position, et
- * déconnexion. Les informations sont tenues par l'administration Tôligo :
- * rien ne se modifie ici.
+ * Mon profil (maquette LV-Profil) : identité, rôles, station, véhicule en
+ * cours, note, partage de position et déconnexion. Le compte, la station et
+ * les véhicules sont gérés par le superadmin : rien ne se modifie ici.
  */
 export default function ProfilPage() {
   const { profil, fermer } = useSession();
-  const { etat: etatPosition } = usePosition();
+  const { etat: etatPosition, partageActive, changerPartage } = usePosition();
   const confirmer = useConfirmation();
   const [enCours, setEnCours] = useState(false);
 
-  const statut = infosStatut(profil?.statut);
+  // Véhicule en cours : celui de la mission, sinon celui de la tournée démarrée.
+  const vehicule = useDonnees(async () => {
+    const [missions, tournees] = await Promise.all([
+      profil?.estLivreurDomicile ? listerMissions() : Promise.resolve({ missions: [] }),
+      listerTournees(),
+    ]);
+    const mission = missions.missions.find((m) => m.vehicule);
+    if (mission) return mission.vehicule;
+    return tournees.find((t) => t.statut === 'en_cours' && t.vehicule)?.vehicule ?? null;
+  }, [profil?.estLivreurDomicile]);
 
   async function deconnecter() {
     const ok = await confirmer({
@@ -38,73 +51,87 @@ export default function ProfilPage() {
     fermer();
   }
 
-  const roles = [profil?.estChauffeur && 'Chauffeur de ramassage', profil?.estLivreurDomicile && 'Livreur à domicile'].filter(Boolean);
+  async function basculerPartage(actif) {
+    if (!actif) {
+      const ok = await confirmer({
+        titre: 'Couper le partage ?',
+        texte: 'Votre station ne vous verra plus sur la carte et ne pourra pas choisir le livreur le plus proche.',
+        accepter: 'Couper',
+      });
+      if (!ok) return;
+    }
+    changerPartage(actif);
+  }
 
   return (
-    <Page titre="Profil">
-      <TitreEcran>Profil</TitreEcran>
-
+    <Page
+      titre="Mon profil"
+      entete={<EnTete titre="Mon profil" gris repli={Routes.accueil} />}
+      pied={
+        <button type="button" className="profil__deconnexion" onClick={deconnecter} disabled={enCours}>
+          <LogOut size={20} aria-hidden="true" />
+          Se déconnecter
+        </button>
+      }
+    >
       <div className="profil__identite">
-        <AvatarInitiales nom={profil?.nomComplet} taille={72} accent />
-        <div className="extensible">
-          <p className="titre profil__nom">{profil?.nomComplet ?? ' '}</p>
-          <p className="texte-secondaire">{profil ? `+225 ${afficherTelephone(profil.telephone)}` : ''}</p>
-          {profil && (
-            <div style={{ marginTop: 8 }}>
-              <Pastille ton={statut.ton} petite>
-                {statut.libelle}
-              </Pastille>
-            </div>
-          )}
+        <AvatarInitiales nom={profil?.nomComplet} taille={76} fond="var(--encre)" couleur="var(--blanc)" />
+        <p className="profil__nom">{profil?.nomComplet ?? ' '}</p>
+        <p className="profil__telephone">{profil ? `+225 ${afficherTelephone(profil.telephone)}` : ''}</p>
+        <div className="rangee" style={{ gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+          {profil?.estChauffeur && <Pastille ton="sombre">Chauffeur de ramassage</Pastille>}
+          {profil?.estLivreurDomicile && <Pastille ton="accent">Livreur à domicile</Pastille>}
         </div>
       </div>
 
-      <div className="pile" style={{ gap: 18 }}>
-        <section>
-          <p className="etiquette-section" style={{ marginBottom: 8 }}>
-            Mon activité
-          </p>
-          <BlocGris style={{ padding: 4 }}>
-            <LigneInfo libelle={roles.length > 1 ? 'Rôles' : 'Rôle'} valeur={roles.length > 0 ? roles.join(' · ') : 'Aucun'} />
-            {profil?.noteMoyenne !== null && profil?.noteMoyenne !== undefined && (
-              <LigneInfo
-                libelle="Note des clients"
-                valeur={
-                  <span className="rangee" style={{ gap: 4, justifyContent: 'flex-end' }}>
-                    <Star size={15} fill="currentColor" className="texte-accent" aria-hidden="true" />
-                    {profil.noteMoyenne.toFixed(1).replace('.', ',')} / 5
-                  </span>
-                }
-              />
-            )}
-            {profil?.email && <LigneInfo libelle="E-mail" valeur={profil.email} />}
-          </BlocGris>
-        </section>
-
-        <section>
-          <p className="etiquette-section" style={{ marginBottom: 8 }}>
-            Station
-          </p>
-          <BlocGris style={{ padding: 4 }}>
-            <LigneInfo libelle="Station" valeur={profil?.station?.nom ?? 'Aucune'} />
-          </BlocGris>
-          <p className="texte-secondaire" style={{ fontSize: 13, marginTop: 6 }}>
-            Le véhicule vous est confié pour chaque tournée ou livraison par le gestionnaire de la station.
-          </p>
-        </section>
-
-        <EncadreInfo icone={LocateFixed}>
-          {texteEtatPosition(etatPosition)} La position n'est envoyée que lorsque vous êtes « Disponible » ou « En mission ».
-        </EncadreInfo>
-
-        <p className="texte-secondaire" style={{ fontSize: 13, lineHeight: 1.45 }}>
-          Une information à corriger ? Votre profil est tenu par l'équipe Tôligo : adressez-vous au gestionnaire de votre station.
-        </p>
-
-        <Bouton variante="contour-danger" icone={LogOut} enCours={enCours} onClick={deconnecter}>
-          Se déconnecter
-        </Bouton>
+      <div className="liste-carte">
+        <LigneProfil icone={Warehouse} libelle="Station" valeur={profil?.station?.nom ?? 'Aucune'} />
+        <LigneProfil
+          icone={Truck}
+          libelle="Véhicule actuel"
+          valeur={vehicule.donnees ? nomVehicule(vehicule.donnees) : 'Attribué à chaque mission'}
+          discrete={!vehicule.donnees}
+        />
+        <LigneProfil
+          icone={Star}
+          libelle="Note moyenne"
+          valeur={profil?.noteMoyenne ? `${profil.noteMoyenne.toFixed(1).replace('.', ',')} / 5` : 'Pas encore notée'}
+          discrete={!profil?.noteMoyenne}
+        />
       </div>
+
+      <div className="profil__position">
+        <span className="profil__position-icone" aria-hidden="true">
+          <LocateFixed size={22} />
+        </span>
+        <span className="extensible">
+          <span className="profil__position-titre">Partager ma position</span>
+          <span className="profil__position-texte">
+            {partageActive && etatPosition !== 'refusee' && etatPosition !== 'indisponible'
+              ? 'Pendant le service, pour le suivi'
+              : texteEtatPosition(etatPosition)}
+          </span>
+        </span>
+        <Interrupteur actif={partageActive} onChange={basculerPartage} libelle="Partager ma position" />
+      </div>
+
+      <p className="profil__note">Compte, station et véhicules gérés par le superadmin Tôligo.</p>
     </Page>
+  );
+}
+
+function LigneProfil({ icone: Icone, libelle, valeur, discrete = false }) {
+  return (
+    <div className="liste-carte__ligne">
+      <span className="profil__icone" aria-hidden="true">
+        <Icone size={20} />
+      </span>
+      <span className="liste-carte__texte texte-secondaire" style={{ fontSize: 15 }}>
+        {libelle}
+      </span>
+      <span className={discrete ? 'texte-secondaire' : 'gras'} style={{ fontSize: 15, textAlign: 'right' }}>
+        {valeur}
+      </span>
+    </div>
   );
 }
